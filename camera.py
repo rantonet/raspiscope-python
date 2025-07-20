@@ -11,6 +11,8 @@ class Camera():
         self.camera = Picamera2()
         self.camera.start()
         sleep(2)
+    async def setCamera(self,settings=dict()):
+        pass
     async def takePicture(self):
         """takePicture
 
