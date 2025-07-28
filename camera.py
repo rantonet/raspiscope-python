@@ -1,6 +1,5 @@
-from time import sleep
-
 from picamera2 import Picamera2
+from asyncio   import sleep
 
 class Camera():
     async def __init__(self):
