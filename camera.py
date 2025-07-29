@@ -15,6 +15,12 @@ class Camera():
         Camera settings
         """
         pass
+    def calibrate(self):
+        """calibrate
+
+        Calibrate camera settings to improve image
+        """
+        pass
     def takePicture(self):
         """takePicture
 
