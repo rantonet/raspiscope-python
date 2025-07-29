@@ -1,8 +1,7 @@
 from picamera2 import Picamera2
-from asyncio   import sleep
 
 class Camera():
-    async def __init__(self):
+    def __init__(self):
         """Camera constructor
 
         Initializes the underlying Picamera2 library
@@ -10,15 +9,19 @@ class Camera():
         self.camera = Picamera2()
         self.camera.start()
         sleep(2)
-    async def setCamera(self,settings=dict()):
+    def setCamera(self,settings=dict()):
+        """setCamera
+
+        Camera settings
+        """
         pass
-    async def takePicture(self):
+    def takePicture(self):
         """takePicture
 
         Takes a single picture and return the pixel matrix
         """
         pass
-    async def takeVideo(self):
+    def takeVideo(self):
         """takeVideo
 
         Takes a video and saves it on the filesystem
