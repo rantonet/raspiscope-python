@@ -1,28 +1,53 @@
+import asyncio
+
 from gpiozero import InputDevice
 
+from communicator import Communicator
+
 class CuvettePresence():
-    def __init__(self,inputPin):
+    async def __init__(self,inputPin):
         """CuvettePresence constructor
 
         Initializes the sensors
         """
+        self.communicator      = Communicator("client")
         self.sensor            = InputDevice(inputPin)
         self.presenceThreshold = 0
-    def presenceLoop():
+        self.present           = False
+        self.stop              = False
+    async def presenceLoop():
         """presenceLoop
 
         Main loop checking for the presence of the cuvette
         """
-        pass
-    def getPresence(self):
+        while True:
+            if self.stop: break
+            await self.getPresence()
+            asyncio.sleep(0.001)
+    async def getPresence(self):
         """getPresence
 
         Read the presence sensor and sense if che cuvette is present or not
         """
-        pass
-    def calibrate(self):
+        if (self.sensor < (self.presenceThreshold - self.presenceThreshold*0.2)) \
+            or (self.sensor > (self.presenceThreshold + self.presenceThreshold*0.2)):
+            if not self.present:
+                self.present = True
+        else:
+            if self.present:
+                self.present = False
+    async def calibrate(self):
         """calibrate
 
         Start calibration loop and set the presence threshold
         """
         pass
+    class CuvettePresent():
+        async def __init__(self,data=dict()):
+            self.data = data
+    class CuvetteAbsent():
+        async def __init__(self,data=dict()):
+            self.data = data
+    class Sensing():
+        async def __init__(self,data=dict()):
+            self.data = data
