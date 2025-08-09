@@ -7,86 +7,181 @@ class Analisys():
     """Analisys
 
     Class for spectrogram analisys
-    """    
-    async def __init__(self):
-        """Analisys constructor
-
-        Initializes class members
+    """
+    def __init__(self, image_data=numpy.ndarray(),reference_spectra_path=""):
         """
-        self.communicator = Communicator("client")
-        self.image = numpy.ndarray()
-        self.strip = numpy.array()
-    async def getStrip(self,centerX=0,centerY=0,length=0) -> numpy.array:
-        """getStrip
+        Initializes the processor with the image data to be analyzed.
 
-        Gets a strip of pixels from the pictures
+        Args:
+            image_data (numpy.ndarray): The image's pixel array (e.g., from OpenCV).
+                                        Can be color (BGR) or grayscale.
+            reference_spectra_path (str): Path to the CSV file containing the reference spectra.
+                                          The CSV should have 'wavelength' as the first column
+                                          and subsequent columns for each substance.
         """
-        strip = self.image[centerY,centerX-length/2:centerX+length/2,:]
-        return strip
-    async def getSpectrograph(self) -> numpy.array:
-        """getSpectrograph
+        if not image_data:
+            raise ValueError("Provided image data cannot be None.")
+        if not image_data:
+            raise ValueError("Provided reference spectra path is empty")
+        
+        try:
+            self.reference_spectra = pd.read_csv(reference_spectra_path)
+            self.reference_spectra.set_index('wavelength', inplace=True)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Reference file not found at: {reference_spectra_path}")
 
-        Converts the led strip values to the values array
-        """
-        pass
-    async def computeMaterials(self) -> str:
-        """computeMaterials
+        self.image = image_data
+        
+        # Check if the image has 3 channels (BGR) and convert it to grayscale.
+        # If it has only one channel, it's assumed to be already grayscale.
+        if len(self.image.shape) == 3 and self.image.shape[2] == 3:
+            self.gray_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        else:
+            self.gray_image = self.image
+    def calibrate(self, spectrum_profile, known_peaks_pixels, known_peaks_wavelengths):
+        """calibrate
+        Calibrates the pixel axis into wavelengths (nm).
+        Uses simple linear interpolation based on known peaks.
 
-        Finds the materials in the solution
-        """
-        pass
-    async def compareSpectrographs(self) -> str:
-        """compareSpectrographs
+        Args:
+            spectrum_profile (numpy.ndarray): The spectrum profile.
+            known_peaks_pixels (list): A list of pixel locations of known peaks.
+            known_peaks_wavelengths (list): A list of the corresponding wavelengths in nm.
 
-        Compares the spectrograph taken with those stored
+        Returns:
+            numpy.ndarray: The calibrated wavelength axis.
         """
-        pass
+        pixel_axis = numpy.arange(len(spectrum_profile))
+        wavelength_axis = numpy.interp(pixel_axis, known_peaks_pixels, known_peaks_wavelengths)
+        return wavelength_axis
+    def extract_spectrum_profile(self, y_coord=0, height=5):
+        """extract_spectrum_profile
+
+        Extracts the spectrum's intensity profile from a region of the image.
+
+        Args:
+            y_coord (int): The central y-coordinate of the row from which to extract the spectrum.
+            height (int): The height of the region to average over to reduce noise.
+
+        Returns:
+            numpy.ndarray: A 1D array representing the spectrum's intensity.
+        """
+        if (not y_coord) or (y_coord < (height // 2)):
+            raise ValueError("Y coordinate must be greater than half ofthe height")
+        # Calculate the upper and lower bounds of the region of interest (ROI)
+        start_y = max(0, y_coord - height // 2)
+        end_y = min(self.gray_image.shape[0], y_coord + height // 2 + 1)
+        
+        # Extract the region of interest (ROI)
+        roi = self.gray_image[start_y:end_y, :]
+        
+        # Calculate the mean intensity along the vertical axis (columns)
+        spectrum_profile = numpy.mean(roi, axis=0)
+        
+        return spectrum_profile
+    def identify_substance(self, measured_wavelengths, measured_intensities, prominence_threshold=0.1):
+        """identify_substance
+        Identifies the substance with the best match in the database.
+        Uses an approach based on finding and comparing peaks.
+
+        Args:
+            measured_wavelengths (numpy.ndarray): The wavelength axis of the measured spectrum.
+            measured_intensities (numpy.ndarray): The intensity of the measured spectrum.
+            prominence_threshold (float): The required prominence to consider a peak valid.
+
+        Returns:
+            str: The name of the best-matching substance, or "Unknown".
+        """
+        # Normalize the measured intensities
+        normalized_intensities = (measured_intensities - numpy.min(measured_intensities)) / \
+                                 (numpy.max(measured_intensities) - numpy.min(measured_intensities))
+
+        # Find peaks in the measured spectrum
+        peaks, properties = find_peaks(normalized_intensities, prominence=prominence_threshold)
+        measured_peak_wavelengths = measured_wavelengths[peaks]
+
+        best_match = "Unknown"
+        max_matching_peaks = 0
+
+        print(f"\nDetected peaks in measured spectrum (wavelengths in nm): {measured_peak_wavelengths.round(2)}")
+
+        # Compare with each reference substance
+        for substance_name in self.reference_spectra.columns:
+            ref_intensities = self.reference_spectra[substance_name].values
+            ref_wavelengths = self.reference_spectra.index.values
+
+            # Find peaks in the reference spectrum
+            ref_peaks, _ = find_peaks(ref_intensities, prominence=prominence_threshold)
+            ref_peak_wavelengths = ref_wavelengths[ref_peaks]
+
+            # Count how many measured peaks match the reference ones (within a tolerance)
+            matching_peaks = 0
+            tolerance_nm = 10  # 10 nm tolerance for peak matching
+            for measured_peak in measured_peak_wavelengths:
+                if any(numpy.isclose(measured_peak, ref_peak, atol=tolerance_nm) for ref_peak in ref_peak_wavelengths):
+                    matching_peaks += 1
+            
+            print(f"Comparing with '{substance_name}': {matching_peaks} matching peaks.")
+
+            if matching_peaks > max_matching_peaks:
+                max_matching_peaks = matching_peaks
+                best_match = substance_name
+
+        return best_match
     #Signals
     class GettingStrip():
         """GettingStrip
 
         Signal for Getting Strip
         """
-        pass
+        def __init__(self):
+            self.description = "Getting the strip from the image"
     class StripTaken():
         """StripTaken
 
         Signal for Strip Taken"
         """
-        pass
-    class GettingSpectrograph():
-        """GettingSpectrograph
+        def __init__(self):
+            self.description = "Strip Taken"
+    class GettingSpectrogram():
+        """GettingSpectrogram
 
-        Signal for Getting Spectrograph
+        Signal for Getting Spectrogram
         """
-        pass
-    class SpectrographTaken():
-        """SpectrographTaken
+        def __init__(self):
+            self.description = "Taking the spectrogram"
+    class SpectrogramTaken():
+        """SpectrogramTaken
 
-        Signal for Spectrograph Taken
+        Signal for Spectrogram Taken
         """
-        pass
+        def __init__(self):
+            self.description = "Spectrogram taken"
     class ComputingMaterials():
         """ComputingMaterials
 
         Signal for Computing Materials
         """
-        pass
+        def __init__(self):
+            self.description = "Computing materials"
     class MaterialsComputed():
         """MaterialsComputed
 
         Signal for Materials Computed
         """
-        pass
-    class ComparingSpectrographs():
-        """ComparingSpectrographs
+        def __init__(self):
+            self.description = "Materials computed"
+    class ComparingSpectrograms():
+        """ComparingSpectrograms
 
-        Signal for Comparing Spectrographs
+        Signal for Comparing Spectrograms
         """
-        pass
-    class SpectrographCompared():
-        """SpectrographsCompared
+        def __init__(self):
+            self.description = "Comparing Spectrograms"
+    class SpectrogramsCompared():
+        """SpectrogramsCompared
 
-        Signal for Spectrographs Compared
+        Signal for Spectrograms Compared
         """
-        pass
+        def __init__(self):
+            self.description = "Spectrograms compared"
