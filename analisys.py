@@ -1,5 +1,9 @@
 import asyncio
+import cv2
 import numpy
+import pandas
+
+from scipy.signal import find_peaks
 
 from communicator import Communicator
 
@@ -8,8 +12,9 @@ class Analisys():
 
     Class for spectrogram analisys
     """
-    def __init__(self, image_data=numpy.ndarray(),reference_spectra_path=""):
-        """
+    def __init__(self, image_data=numpy.ndarray(),reference_spectra_path="",tolerance_nm=10):
+        """Analisys constructor
+
         Initializes the processor with the image data to be analyzed.
 
         Args:
@@ -19,13 +24,13 @@ class Analisys():
                                           The CSV should have 'wavelength' as the first column
                                           and subsequent columns for each substance.
         """
-        if not image_data:
+        if image_data is None or image_data.size == 0:
             raise ValueError("Provided image data cannot be None.")
-        if not image_data:
+        if not reference_spectra_path.strip():
             raise ValueError("Provided reference spectra path is empty")
         
         try:
-            self.reference_spectra = pd.read_csv(reference_spectra_path)
+            self.reference_spectra = pandas.read_csv(reference_spectra_path)
             self.reference_spectra.set_index('wavelength', inplace=True)
         except FileNotFoundError:
             raise FileNotFoundError(f"Reference file not found at: {reference_spectra_path}")
@@ -38,7 +43,8 @@ class Analisys():
             self.gray_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
         else:
             self.gray_image = self.image
-    def calibrate(self, spectrum_profile, known_peaks_pixels, known_peaks_wavelengths):
+        self.tolerance_nm = tolerance_nm
+    async def calibrate(self, spectrum_profile, known_peaks_pixels, known_peaks_wavelengths):
         """calibrate
         Calibrates the pixel axis into wavelengths (nm).
         Uses simple linear interpolation based on known peaks.
@@ -54,8 +60,8 @@ class Analisys():
         pixel_axis = numpy.arange(len(spectrum_profile))
         wavelength_axis = numpy.interp(pixel_axis, known_peaks_pixels, known_peaks_wavelengths)
         return wavelength_axis
-    def extract_spectrum_profile(self, y_coord=0, height=5):
-        """extract_spectrum_profile
+    async def extractSpectrumProfile(self, y_coord=0, height=5):
+        """extractSpectrumProfile
 
         Extracts the spectrum's intensity profile from a region of the image.
 
@@ -66,8 +72,8 @@ class Analisys():
         Returns:
             numpy.ndarray: A 1D array representing the spectrum's intensity.
         """
-        if (not y_coord) or (y_coord < (height // 2)):
-            raise ValueError("Y coordinate must be greater than half ofthe height")
+        if y_coord < (height // 2):
+            raise ValueError("Y coordinate must be greater than half of the height")
         # Calculate the upper and lower bounds of the region of interest (ROI)
         start_y = max(0, y_coord - height // 2)
         end_y = min(self.gray_image.shape[0], y_coord + height // 2 + 1)
@@ -79,8 +85,8 @@ class Analisys():
         spectrum_profile = numpy.mean(roi, axis=0)
         
         return spectrum_profile
-    def identify_substance(self, measured_wavelengths, measured_intensities, prominence_threshold=0.1):
-        """identify_substance
+    async def identifySubstance(self, measured_wavelengths, measured_intensities, prominence_threshold=0.1):
+        """identifySubstance
         Identifies the substance with the best match in the database.
         Uses an approach based on finding and comparing peaks.
 
@@ -93,8 +99,7 @@ class Analisys():
             str: The name of the best-matching substance, or "Unknown".
         """
         # Normalize the measured intensities
-        normalized_intensities = (measured_intensities - numpy.min(measured_intensities)) / \
-                                 (numpy.max(measured_intensities) - numpy.min(measured_intensities))
+        normalized_intensities = self.normalizeArray(measured_intensities)
 
         # Find peaks in the measured spectrum
         peaks, properties = find_peaks(normalized_intensities, prominence=prominence_threshold)
@@ -109,6 +114,7 @@ class Analisys():
         for substance_name in self.reference_spectra.columns:
             ref_intensities = self.reference_spectra[substance_name].values
             ref_wavelengths = self.reference_spectra.index.values
+            ref_intensities = self.normalizeArray(ref_intensities)
 
             # Find peaks in the reference spectrum
             ref_peaks, _ = find_peaks(ref_intensities, prominence=prominence_threshold)
@@ -116,9 +122,8 @@ class Analisys():
 
             # Count how many measured peaks match the reference ones (within a tolerance)
             matching_peaks = 0
-            tolerance_nm = 10  # 10 nm tolerance for peak matching
             for measured_peak in measured_peak_wavelengths:
-                if any(numpy.isclose(measured_peak, ref_peak, atol=tolerance_nm) for ref_peak in ref_peak_wavelengths):
+                if any(numpy.isclose(measured_peak, ref_peak, atol=self.tolerance_nm) for ref_peak in ref_peak_wavelengths):
                     matching_peaks += 1
             
             print(f"Comparing with '{substance_name}': {matching_peaks} matching peaks.")
@@ -128,6 +133,12 @@ class Analisys():
                 best_match = substance_name
 
         return best_match
+    def normalizeArray(self,arr):
+        min_val = numpy.min(arr)
+        max_val = numpy.max(arr)
+        if max_val - min_val == 0:
+            return numpy.zeros_like(arr)  # spettro piatto
+        return (arr - min_val) / (max_val - min_val)
     #Signals
     class GettingStrip():
         """GettingStrip
