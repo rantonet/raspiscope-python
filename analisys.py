@@ -141,6 +141,20 @@ class Analisys():
             return numpy.zeros_like(arr)  # spettro piatto
         return (arr - min_val) / (max_val - min_val)
     #Signals
+    class Calibrating():
+        """Calibrating
+
+        Signal for Calibrating Analisys
+        """
+        def __init__(self):
+            self.description = "Calibrating the analysis module"
+    class Calibrated():
+        """Calibrated
+
+        Signal for Analisys calibrated
+        """
+        def __init__(self):
+            self.description = "Analysis module calibrated"
     class GettingStrip():
         """GettingStrip
 
