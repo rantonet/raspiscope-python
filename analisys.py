@@ -24,6 +24,7 @@ class Analisys():
                                           The CSV should have 'wavelength' as the first column
                                           and subsequent columns for each substance.
         """
+        self.communicator = Communicator("client")
         if image_data is None or image_data.size == 0:
             raise ValueError("Provided image data cannot be None.")
         if not reference_spectra_path.strip():

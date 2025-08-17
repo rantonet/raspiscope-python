@@ -5,7 +5,7 @@ from gpiozero import InputDevice
 from communicator import Communicator
 
 class CuvettePresence():
-    async def __init__(self,inputPin):
+    def __init__(self,inputPin):
         """CuvettePresence constructor
 
         Initializes the sensors

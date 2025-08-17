@@ -12,8 +12,8 @@ class Communicator():
     Messagge format:
     {
         "Destination" : "DESTINATION-NAME"
-        "Sender"   : "SENDER-NAME"
-        "Message"  : "MESSAGE"
+        "Sender"      : "SENDER-NAME"
+        "Message"     : "MESSAGE"
     }
     If Destination is empty: invalid. Just drop the message.
     If Destination is "All": broadcast. Forward to every modules.
@@ -39,7 +39,11 @@ class Communicator():
                 with connect(uri) as websocket:
                     while True:
                         while self.outgoingQueue:
-                            websocket.send(self.outgoingQueue.pop(0))
+                            message = self.outgoingQueue.pop(0)
+                            if message["Destination"] == "Communicator" and \
+                               message["Message"]     == "Stop":
+                               break
+                            websocket.send()
                             asyncio.sleep(0.001)
                         asyncio.sleep(0.001)
         else:

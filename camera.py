@@ -6,7 +6,7 @@ from picamera2 import Picamera2
 from communicator import Communicator
 
 class Camera():
-    async def __init__(self):
+    def __init__(self):
         """Camera constructor
 
         Initializes the underlying Picamera2 library
@@ -16,19 +16,57 @@ class Camera():
         self.camera = Picamera2()
         picam2.configure(picam2.create_still_configuration({"size": (1920,1080)}))
         self.camera.start()
+    async def run():
+        message = None
+        while True:
+            if self.communicator.incomingQueue:
+                message = self.communicator.incomingQueue.pop(0)
+            if message:
+                if message["Message"] == "Stop":
+                    break
+                elif message["Message"] == "Set":
+                    pass
+                elif message["Message"] == "Calibrate":
+                    pass
+                elif message["Message"] == "Take":
+                    pass
     async def setCamera(self,settings=dict()):
         """setCamera
 
         Camera settings
         """
+        self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "Camera",
+                                        "Destination" : "All",
+                                        "Message"     : self.SettingCamera()
+                                    }
+                                              )
+        #Casual samples
         self.camera.stop()
         picam2.configure(picam2.create_still_configuration({"size": (1920,1080)}))
         self.camera.start()
+        self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "Camera",
+                                        "Destination" : "All",
+                                        "Message"     : self.CameraSet()
+                                    }
+                                              )
+        #Casual samples
+        return True
     async def calibrate(self):
         """calibrate
 
         Calibrate camera settings to improve image
         """
+        self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "Camera",
+                                        "Destination" : "All",
+                                        "Message"     : self.CalibratingCamera()
+                                    }
+                                              )
         #Casual samples
         N_SAMPLES = 100
 
@@ -98,15 +136,45 @@ class Camera():
                 print(f"  {k}: {v:.2f}")
             picam2.set_controls(best_params)
             time.sleep(0.5)
+            self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "Camera",
+                                        "Destination" : "All",
+                                        "Message"     : self.CameraCalibrated()
+                                    }
+                                              )
+        return True
     async def takePicture(self) -> numpy.ndarray:
         """takePicture
 
         Takes a single picture and return the pixel matrix
         """
+        self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "Camera",
+                                        "Destination" : "All",
+                                        "Message"     : self.TakingPicture()
+                                    }
+                                              )
         self.image = picam2.capture_array()
-
-        return self.image
+        self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "Camera",
+                                        "Destination" : "All",
+                                        "Message"     : self.PictureTaken(
+                                                                      self.image
+                                                                         )
+                                    }
+                                              )
+        return True
     #Signals
+    class SettingCamera():
+        """SettingCamera
+
+        Seignal for Camera Settings
+        """
+        async def __init__(self,data=dict()):
+            self.data = data
     class CameraSet():
         """CameraSet
 
@@ -114,17 +182,17 @@ class Camera():
         """
         async def __init__(self,data=dict()):
             self.data = data
-    class CameraCalibrated():
-        """CameraCalibrated
-
-        Signal for Camera Calibrated
-        """
-        async def __init__(self,data=dict()):
-            self.data = data
     class CalibratingCamera():
         """CalibratingCamera
 
         Signal for Calibrating Camera
+        """
+        async def __init__(self,data=dict()):
+            self.data = data
+    class CameraCalibrated():
+        """CameraCalibrated
+
+        Signal for Camera Calibrated
         """
         async def __init__(self,data=dict()):
             self.data = data

@@ -2,10 +2,10 @@ from multiprocessing import Pool,Process,Pipe
 
 c  = Camera()
 cs = CuvetteSensor()
-l  = LightSensor()
+l  = LightSource()
 a  = Analisys()
 
-e  = EventManager(c,cs,a,l)
+e = EventManager(c,cs,a,l)
 
 #Main loop
 eventLoop = Process(e.run())

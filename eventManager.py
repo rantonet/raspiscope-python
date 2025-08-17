@@ -7,7 +7,7 @@ class EventManager():
 
     A simple event manager for modules orchestration
     """
-    async def __init__(self,modules=dict(),*args,**kargs):
+    def __init__(self,modules=dict(),*args,**kargs):
         """Event Manager Constructor
 
         Initializes the Event Manager
