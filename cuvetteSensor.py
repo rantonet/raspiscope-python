@@ -33,9 +33,23 @@ class CuvettePresence():
             or (self.sensor > (self.presenceThreshold + self.presenceThreshold*0.2)):
             if not self.present:
                 self.present = True
+                self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "CuvetteSensor",
+                                        "Destination" : "All",
+                                        "Message"     : self.CuvettePresent()
+                                    }
+                                              )
         else:
             if self.present:
                 self.present = False
+                self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "CuvetteSensor",
+                                        "Destination" : "All",
+                                        "Message"     : self.CuvetteAbsent()
+                                    }
+                                              )
     async def calibrate(self):
         """calibrate
 

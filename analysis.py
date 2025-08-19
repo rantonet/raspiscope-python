@@ -7,13 +7,13 @@ from scipy.signal import find_peaks
 
 from communicator import Communicator
 
-class Analisys():
-    """Analisys
+class Analysis():
+    """Analysis
 
-    Class for spectrogram analisys
+    Class for spectrogram analysis
     """
     def __init__(self, image_data=numpy.ndarray(),reference_spectra_path="",tolerance_nm=10):
-        """Analisys constructor
+        """Analysis constructor
 
         Initializes the processor with the image data to be analyzed.
 
@@ -58,8 +58,22 @@ class Analisys():
         Returns:
             numpy.ndarray: The calibrated wavelength axis.
         """
+        self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "Analysis",
+                                        "Destination" : "All",
+                                        "Message"     : self.Calibrating()
+                                    }
+                                              )
         pixel_axis = numpy.arange(len(spectrum_profile))
         wavelength_axis = numpy.interp(pixel_axis, known_peaks_pixels, known_peaks_wavelengths)
+        self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "Analysis",
+                                        "Destination" : "All",
+                                        "Message"     : self.Calibrated()
+                                    }
+                                              )
         return wavelength_axis
     async def extractSpectrumProfile(self, y_coord=0, height=5):
         """extractSpectrumProfile
@@ -73,6 +87,13 @@ class Analisys():
         Returns:
             numpy.ndarray: A 1D array representing the spectrum's intensity.
         """
+        self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "Analysis",
+                                        "Destination" : "All",
+                                        "Message"     : self.GettingSpectrogram()
+                                    }
+                                              )
         if y_coord < (height // 2):
             raise ValueError("Y coordinate must be greater than half of the height")
         # Calculate the upper and lower bounds of the region of interest (ROI)
@@ -85,6 +106,14 @@ class Analisys():
         # Calculate the mean intensity along the vertical axis (columns)
         spectrum_profile = numpy.mean(roi, axis=0)
         
+        self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "Analysis",
+                                        "Destination" : "All",
+                                        "Message"     : self.SpectrogramTaken()
+                                    }
+                                              )
+
         return spectrum_profile
     async def identifySubstance(self, measured_wavelengths, measured_intensities, prominence_threshold=0.1):
         """identifySubstance
@@ -144,14 +173,14 @@ class Analisys():
     class Calibrating():
         """Calibrating
 
-        Signal for Calibrating Analisys
+        Signal for Calibrating Analysis
         """
         def __init__(self):
             self.description = "Calibrating the analysis module"
     class Calibrated():
         """Calibrated
 
-        Signal for Analisys calibrated
+        Signal for Analysis calibrated
         """
         def __init__(self):
             self.description = "Analysis module calibrated"

@@ -1,5 +1,7 @@
 import asyncio
 
+from multiprocessing import Process
+
 from communicator import Communicator
 
 class EventManager():
@@ -17,6 +19,10 @@ class EventManager():
             self.modules = dict()
         else:
             self.modules = modules
+        self.runningModules = list()
+        if self.modules:
+            for module in self.module:
+                self.runningModules.append(Process(target=module.run))
     async def run(self):
         while True:
             #TODO: implement

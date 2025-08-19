@@ -29,6 +29,11 @@ class LightSource():
                               )
         self.white = Color(255,255,255)
         self.led.begin()
+    async def calibrate(self,rgb=[255,255,255],brightness=255):
+        strip.setPixelColor(0, Color(rgb[0],rgb[1],rgb[2]))
+        strip.setBrightness(brightness)
+        strip.show()
+        return True
     async def turnOn(self):
         """turnOn
 

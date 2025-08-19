@@ -1,19 +1,15 @@
-from multiprocessing import Pool,Process,Pipe
+from multiprocessing import Process
+from analysis        import Analysis
+from eventManager    import EventManager
+from camera          import Camera
+from cuvetteSensor   import CuvetteSensor
+from lightSource     import LightSource
 
 c  = Camera()
 cs = CuvetteSensor()
 l  = LightSource()
-a  = Analisys()
+a  = Analysis()
 
 e = EventManager(c,cs,a,l)
 
-#Main loop
-eventLoop = Process(e.run())
-
-eventLoop.run() #TODO: check this
-
-#Termination check loop
-while True:
-    pass
-
-eventLoop.join()
+e.run()

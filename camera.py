@@ -55,7 +55,16 @@ class Camera():
                                               )
         #Casual samples
         return True
-    async def calibrate(self):
+    async def calibrate(self,
+                        Samples           = 100,
+                        ExposureTimeRange = (1000,10000),
+                        AnalogueGainRange = (81.0,8.0),
+                        SharpnessRange    = (-1.0,1.0),
+                        ContrastRange     = (-1.0,1.0),
+                        SaturationRange   = (-1.0,1.0),
+                        SharpnessWeight   = 1.0,
+                        NoiseWeight       = 0.5
+                        ):
         """calibrate
 
         Calibrate camera settings to improve image
@@ -68,38 +77,20 @@ class Camera():
                                     }
                                               )
         #Casual samples
-        N_SAMPLES = 100
+        N_SAMPLES = Samples
 
         #Parameters intervals
         PARAM_RANGES = {
-            "ExposureTime": (1000, 10000),
-            "AnalogueGain": (1.0, 8.0),
-            "Sharpness": (-1.0, 1.0),
-            "Contrast": (-1.0, 1.0),
-            "Saturation": (-1.0, 1.0)
+            "ExposureTime" : ExposureTimeRange,
+            "AnalogueGain" : AnalogueGainRange,
+            "Sharpness"    : SharpnessRange,
+            "Contrast"     : ContrastRange,
+            "Saturation"   : SaturationRange
         }
 
         #Balancing weights for sharpsness versus noise
-        W_SHARP = 1.0
-        W_NOISE = 0.5
-
-        def measure_sharpness(img):
-            gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-            return cv2.Laplacian(gray, cv2.CV_64F).var()
-
-        def estimate_noise(img):
-            gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-            blur = cv2.GaussianBlur(gray, (5, 5), 0)
-            noise = gray.astype(np.float32) - blur.astype(np.float32)
-            return np.std(noise)
-
-        def random_param():
-            #Extract a dictionary of casual parameters
-            return {
-                name: np.random.uniform(low, high) if isinstance(low, float) or isinstance(high, float)
-                    else int(np.random.randint(low, high + 1))
-                for name, (low, high) in PARAM_RANGES.items()
-            }
+        W_SHARP = SharpnessWeight
+        W_NOISE = NoiseWeight
 
         with self.camera as picam2:
             #Base Configuration
@@ -110,16 +101,23 @@ class Camera():
 
             for i in range(N_SAMPLES):
                 #Extract casual parameters
-                params = random_param()
+                params = {
+                            name: numpy.random.uniform(low, high) if isinstance(low, float) or isinstance(high, float)
+                                else int(numpy.random.randint(low, high + 1))
+                            for name, (low, high) in PARAM_RANGES.items()
+                        }
 
                 #Apply controls
                 picam2.set_controls(params)
                 time.sleep(0.3)
 
                 #Take picture and measure
-                img = picam2.capture_array()
-                sharp = measure_sharpness(img)
-                noise = estimate_noise(img)
+                img   = picam2.capture_array()
+                sharp = cv2.Laplacian(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), cv2.CV_64F).var()
+                gray  = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+                blur  = cv2.GaussianBlur(gray, (5, 5), 0)
+                noise = gray.astype(numpy.float32) - blur.astype(numpy.float32)
+                noise = numpy.std(noise)
 
                 #Compute the score (minimize)
                 score = - (W_SHARP * sharp - W_NOISE * noise)
@@ -127,14 +125,7 @@ class Camera():
                 if score < best_score:
                     best_score = score
                     best_params = params.copy()
-                    print(f"[New best #{i+1}] score={score:.1f} | sharp={sharp:.1f}, noise={noise:.1f}")
-                    print("           params:", {k: round(v, 2) for k, v in params.items()})
-
-            #Apply the best configuration found
-            print("\n🎯 Optimal parameters found:")
-            for k, v in best_params.items():
-                print(f"  {k}: {v:.2f}")
-            picam2.set_controls(best_params)
+            self.camera.set_controls(best_params)
             time.sleep(0.5)
             self.communicator.outgoingQueue.append(
                                     {
