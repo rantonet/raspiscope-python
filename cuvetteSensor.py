@@ -13,6 +13,7 @@ class CuvettePresence():
         self.communicator      = Communicator("client")
         self.sensor            = InputDevice(inputPin)
         self.presenceThreshold = 0
+        self.thresholdSpan     = 0.1
         self.present           = False
         self.stop              = False
     async def presenceLoop():
@@ -20,6 +21,13 @@ class CuvettePresence():
 
         Main loop checking for the presence of the cuvette
         """
+        self.communicator.outgoingQueue.append(
+                                    {
+                                        "Sender"      : "CuvetteSensor",
+                                        "Destination" : "All",
+                                        "Message"     : self.Sensing()
+                                    }
+                                              )
         while True:
             if self.stop: break
             await self.getPresence()
@@ -29,8 +37,8 @@ class CuvettePresence():
 
         Read the presence sensor and sense if che cuvette is present or not
         """
-        if (self.sensor < (self.presenceThreshold - self.presenceThreshold*0.2)) \
-            or (self.sensor > (self.presenceThreshold + self.presenceThreshold*0.2)):
+        if (self.sensor < (self.presenceThreshold - self.presenceThreshold*self.thresholdSpan)) \
+            or (self.sensor > (self.presenceThreshold + self.presenceThreshold*self.thresholdSpan)):
             if not self.present:
                 self.present = True
                 self.communicator.outgoingQueue.append(
@@ -50,12 +58,18 @@ class CuvettePresence():
                                         "Message"     : self.CuvetteAbsent()
                                     }
                                               )
-    async def calibrate(self):
+    async def calibrate(self,numberOfSamples=100):
         """calibrate
 
         Start calibration loop and set the presence threshold
         """
-        pass
+        samples = list()
+        for step in range(numberOfSamples):
+            samples.append(self.sensor.value)
+        if len(samples) == numberOfSamples:
+            pass
+        else:
+            return Exception('Cuvette Sensor calibration failed')
     class CuvettePresent():
         async def __init__(self,data=dict()):
             self.data = data
