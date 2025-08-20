@@ -17,6 +17,7 @@ class Camera():
         picam2.configure(picam2.create_still_configuration({"size": (1920,1080)}))
         self.camera.start()
     async def run():
+        await self.communicator.run()
         message = None
         while True:
             if self.communicator.incomingQueue:

@@ -16,11 +16,12 @@ class CuvettePresence():
         self.thresholdSpan     = 0.1
         self.present           = False
         self.stop              = False
-    async def presenceLoop():
+    async def run():
         """presenceLoop
 
         Main loop checking for the presence of the cuvette
         """
+        await self.communicator.run()
         self.communicator.outgoingQueue.append(
                                     {
                                         "Sender"      : "CuvetteSensor",

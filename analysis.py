@@ -45,6 +45,10 @@ class Analysis():
         else:
             self.gray_image = self.image
         self.tolerance_nm = tolerance_nm
+    async def run(self):
+        await self.communicator.run()
+        while True:
+            pass
     async def calibrate(self, spectrum_profile, known_peaks_pixels, known_peaks_wavelengths):
         """calibrate
         Calibrates the pixel axis into wavelengths (nm).

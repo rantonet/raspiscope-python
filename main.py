@@ -1,3 +1,5 @@
+import asyncio
+
 from multiprocessing import Process
 from analysis        import Analysis
 from eventManager    import EventManager
@@ -12,4 +14,4 @@ a  = Analysis()
 
 e = EventManager(c,cs,a,l)
 
-e.run()
+asyncio.run(e.run())
