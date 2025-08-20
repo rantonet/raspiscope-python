@@ -1,7 +1,6 @@
-import asyncio
-
-from gpiozero import InputDevice
-
+from time         import sleep
+from gpiozero     import InputDevice
+from threading    import Thread
 from communicator import Communicator
 
 class CuvettePresence():
@@ -10,30 +9,40 @@ class CuvettePresence():
 
         Initializes the sensors
         """
+        self.name              = "CuvetteSensor"
         self.communicator      = Communicator("client")
         self.sensor            = InputDevice(inputPin)
         self.presenceThreshold = 0
         self.thresholdSpan     = 0.1
         self.present           = False
         self.stop              = False
-    async def run():
+    def run():
         """presenceLoop
 
         Main loop checking for the presence of the cuvette
         """
-        await self.communicator.run()
+        t = Threading(target=self.communicator.run)
+        t.start()
         self.communicator.outgoingQueue.append(
                                     {
-                                        "Sender"      : "CuvetteSensor",
+                                        "Sender"      : self.name,
                                         "Destination" : "All",
                                         "Message"     : self.Sensing()
                                     }
                                               )
         while True:
             if self.stop: break
-            await self.getPresence()
-            asyncio.sleep(0.001)
-    async def getPresence(self):
+            self.getPresence()
+            sleep(0.001)
+        self.communicator.outgoingQueue.append(
+                                            {
+                                                "Sender"      : self.name,
+                                                "Destination" : "Communicator",
+                                                "Message"     : "stop"
+                                            }
+                                            )
+        t.join()
+    def getPresence(self):
         """getPresence
 
         Read the presence sensor and sense if che cuvette is present or not
@@ -59,7 +68,7 @@ class CuvettePresence():
                                         "Message"     : self.CuvetteAbsent()
                                     }
                                               )
-    async def calibrate(self,numberOfSamples=100):
+    def calibrate(self,numberOfSamples=100):
         """calibrate
 
         Start calibration loop and set the presence threshold
@@ -72,11 +81,11 @@ class CuvettePresence():
         else:
             return Exception('Cuvette Sensor calibration failed')
     class CuvettePresent():
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data
     class CuvetteAbsent():
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data
     class Sensing():
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data

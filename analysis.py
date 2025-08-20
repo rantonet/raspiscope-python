@@ -1,10 +1,9 @@
-import asyncio
 import cv2
 import numpy
 import pandas
-
+from time         import sleep
 from scipy.signal import find_peaks
-
+from threading    import Thread
 from communicator import Communicator
 
 class Analysis():
@@ -12,7 +11,7 @@ class Analysis():
 
     Class for spectrogram analysis
     """
-    def __init__(self, image_data=numpy.ndarray(),reference_spectra_path="",tolerance_nm=10):
+    def __init__(self,reference_spectra_path="",tolerance_nm=10):
         """Analysis constructor
 
         Initializes the processor with the image data to be analyzed.
@@ -24,32 +23,40 @@ class Analysis():
                                           The CSV should have 'wavelength' as the first column
                                           and subsequent columns for each substance.
         """
+        self.name         = "Analysis"
+        self.stop         = False
+        self.image        = image_data
         self.communicator = Communicator("client")
-        if image_data is None or image_data.size == 0:
-            raise ValueError("Provided image data cannot be None.")
-        if not reference_spectra_path.strip():
-            raise ValueError("Provided reference spectra path is empty")
-        
         try:
             self.reference_spectra = pandas.read_csv(reference_spectra_path)
             self.reference_spectra.set_index('wavelength', inplace=True)
         except FileNotFoundError:
             raise FileNotFoundError(f"Reference file not found at: {reference_spectra_path}")
-
-        self.image = image_data
-        
-        # Check if the image has 3 channels (BGR) and convert it to grayscale.
-        # If it has only one channel, it's assumed to be already grayscale.
-        if len(self.image.shape) == 3 and self.image.shape[2] == 3:
-            self.gray_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-        else:
-            self.gray_image = self.image
         self.tolerance_nm = tolerance_nm
-    async def run(self):
-        await self.communicator.run()
+    def run(self):
+        t = Thread(target=self.communicator.run)
+        t.start()
         while True:
-            pass
-    async def calibrate(self, spectrum_profile, known_peaks_pixels, known_peaks_wavelengths):
+            #TODO: implement get image_tata code
+            if image_data is None or image_data.size == 0:
+                raise ValueError("Provided image data cannot be None.")
+            if not reference_spectra_path.strip():
+                raise ValueError("Provided reference spectra path is empty")
+            if len(self.image.shape) == 3 and self.image.shape[2] == 3:
+                self.gray_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+            else:
+                self.gray_image = self.image
+            #TODO: end the function
+            sleep(0.001)
+        self.communicator.outgoingQueue.append(
+                                            {
+                                                "Sender"      : self.name,
+                                                "Destination" : "Communicator",
+                                                "Message"     : "stop"
+                                            }
+                                            )
+        t.join()
+    def calibrate(self, spectrum_profile, known_peaks_pixels, known_peaks_wavelengths):
         """calibrate
         Calibrates the pixel axis into wavelengths (nm).
         Uses simple linear interpolation based on known peaks.
@@ -79,7 +86,7 @@ class Analysis():
                                     }
                                               )
         return wavelength_axis
-    async def extractSpectrumProfile(self, y_coord=0, height=5):
+    def extractSpectrumProfile(self, y_coord=0, height=5):
         """extractSpectrumProfile
 
         Extracts the spectrum's intensity profile from a region of the image.
@@ -119,7 +126,7 @@ class Analysis():
                                               )
 
         return spectrum_profile
-    async def identifySubstance(self, measured_wavelengths, measured_intensities, prominence_threshold=0.1):
+    def identifySubstance(self, measured_wavelengths, measured_intensities, prominence_threshold=0.1):
         """identifySubstance
         Identifies the substance with the best match in the database.
         Uses an approach based on finding and comparing peaks.

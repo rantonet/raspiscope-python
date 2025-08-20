@@ -1,8 +1,7 @@
-import asyncio
 import numpy
-
-from picamera2 import Picamera2
-
+from time         import sleep
+from picamera2    import Picamera2
+from threading    import Thread
 from communicator import Communicator
 
 class Camera():
@@ -12,13 +11,16 @@ class Camera():
         Initializes the underlying Picamera2 library
         """
         self.communicator = Communicator("client")
-        self.image = numpy.ndarray()
-        self.camera = Picamera2()
+        self.name         = "Camera"
+        self.image        = numpy.ndarray()
+        self.camera       = Picamera2()
+        
         picam2.configure(picam2.create_still_configuration({"size": (1920,1080)}))
-        self.camera.start()
-    async def run():
-        await self.communicator.run()
+    def run():
+        t = Thread(target=self.communicator.run)
+        t.start()
         message = None
+        self.camera.start()
         while True:
             if self.communicator.incomingQueue:
                 message = self.communicator.incomingQueue.pop(0)
@@ -31,7 +33,15 @@ class Camera():
                     pass
                 elif message["Message"] == "Take":
                     pass
-    async def setCamera(self,settings=dict()):
+        self.communicator.outgoingQueue.append(
+                                {
+                                    "Sender"      : self.name,
+                                    "Destination" : "Communicator",
+                                    "Message"     : "stop"
+                                }
+                                            )
+        t.join()
+    def setCamera(self,settings=dict()):
         """setCamera
 
         Camera settings
@@ -56,7 +66,7 @@ class Camera():
                                               )
         #Casual samples
         return True
-    async def calibrate(self,
+    def calibrate(self,
                         Samples           = 100,
                         ExposureTimeRange = (1000,10000),
                         AnalogueGainRange = (81.0,8.0),
@@ -136,7 +146,7 @@ class Camera():
                                     }
                                               )
         return True
-    async def takePicture(self) -> numpy.ndarray:
+    def takePicture(self) -> numpy.ndarray:
         """takePicture
 
         Takes a single picture and return the pixel matrix
@@ -165,54 +175,54 @@ class Camera():
 
         Seignal for Camera Settings
         """
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data
     class CameraSet():
         """CameraSet
 
         Seignal for Camera Settings
         """
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data
     class CalibratingCamera():
         """CalibratingCamera
 
         Signal for Calibrating Camera
         """
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data
     class CameraCalibrated():
         """CameraCalibrated
 
         Signal for Camera Calibrated
         """
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data
     class TakingPicture():
         """TakingPicture
 
         Signal for Taking Picture
         """
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data
     class PictureTaken():
         """PictureTaken
 
         Signal for Picture Taken
         """
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data
     class NeedMoreLight():
         """NeedMoreLight
 
         Signal to ask for more light
         """
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data
     class NeedLessLight():
         """NeedLessLight
 
         Signal to ask for less light
         """
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data

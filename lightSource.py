@@ -1,7 +1,6 @@
-import asyncio
-
-from rpi_ws281x import PixelStrip,Color
-
+from time         import sleep
+from rpi_ws281x   import PixelStrip,Color
+from threading    import Thread
 from communicator import Communicator
 
 class LightSource():
@@ -14,31 +13,41 @@ class LightSource():
 
         Initialize the LED output with the required pin
         """
+        self.name         = "LightSensor"
         self.communicator = Comunicator("client")
-        self.pin = pin
-        self.dma = dma
-        self.pwmChannel = pwmChannel
-        self.brightness = brightness
-        self.led = PixelStrip(1,
-                              self.pin,
-                              800000,
-                              self.dma,
-                              False,
-                              self.brightness,
-                              self.pwmChannel
-                              )
+        self.pin          = pin
+        self.dma          = dma
+        self.pwmChannel   = pwmChannel
+        self.brightness   = brightness
+        self.led          = PixelStrip( 1,
+                                        self.pin,
+                                        800000,
+                                        self.dma,
+                                        False,
+                                        self.brightness,
+                                        self.pwmChannel
+                                    )
         self.white = Color(255,255,255)
         self.led.begin()
-    async def run(self):
-        await self.communicator.run()
+    def run(self):
+        t = Thread(target=self.communicator.run)
+        t.start()
         while True:
-            pass
-    async def calibrate(self,rgb=[255,255,255],brightness=255):
+            sleep(0.001)
+        self.communicator.outgoingQueue.append(
+                                {
+                                    "Sender"      : self.name,
+                                    "Destination" : "Communicator",
+                                    "Message"     : "stop"
+                                }
+                                            )
+        t.join()
+    def calibrate(self,rgb=[255,255,255],brightness=255):
         strip.setPixelColor(0, Color(rgb[0],rgb[1],rgb[2]))
         strip.setBrightness(brightness)
         strip.show()
         return True
-    async def turnOn(self):
+    def turnOn(self):
         """turnOn
 
         Turn on the LED at maximum brightness
@@ -53,7 +62,7 @@ class LightSource():
                                     }
                                               )
         return True
-    async def turnOff(self):
+    def turnOff(self):
         """turnOff
 
         turn off the LED
@@ -68,7 +77,7 @@ class LightSource():
                                     }
                                               )
         return True
-    async def dim(self,v=0.5):
+    def dim(self,v=0.5):
         """dim
 
         Sets the brightness of the led
@@ -89,19 +98,19 @@ class LightSource():
 
         Signal for Light Turned On
         """
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data
     class LightTurnedOff():
         """LightTurnedOff
 
         Signal for Light Turned Off
         """
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data
     class LightDimmed():
         """LightDimmed
 
         Signal for Light Dimmed
         """
-        async def __init__(self,data=dict()):
+        def __init__(self,data=dict()):
             self.data = data

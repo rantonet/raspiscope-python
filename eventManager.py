@@ -1,5 +1,6 @@
-from asyncio         import sleep,run
+from time            import sleep
 from multiprocessing import Process
+from threading       import Thread
 from communicator    import Communicator
 
 class EventManager():
@@ -12,29 +13,46 @@ class EventManager():
 
         Initializes the Event Manager
         """
+        self.name         = "EventManager"
         self.communicator = Communicator("server")
         if not modules:
             self.modules = list()
         else:
             self.modules = modules
         self.runningModules = list()
-    async def run(self):
-        await self.communicator.run()
+    def run(self):
+        t = Thread(target=self.communicator.run)
+        t.start()
+        sleep(0.001)
         for module in self.modules:
-            print("Starting client")
-            self.runningModules.append((Process(target=run,args=(module.run,))))
+            self.runningModules.append(Process(target=module.run))
         for module in self.runningModules:
-            module.run()
-        await self.route()
+            print("Starting client")
+            module.start()
+            sleep(0.001)
+        
+        while True: self.route()
+        
         for module in self.runningModules:
             module.terminate()
             module.join()
-    async def route(self):
+        self.communicator.outgoingQueue.append(
+                                {
+                                    "Sender"      : self.name,
+                                    "Destination" : "Communicator",
+                                    "Message"     : "stop"
+                                }
+                                            )
+        t.join()
+    def route(self):
+        print("Routing")
         while True:
             if self.communicator.incomingQueue:
-                print(self.communicator.incomingQueue.pop(0))
-            await sleep(0.001)
-    async def registerModule(self,module=None):
+                m = self.communicator.incomingQueue.pop(0)
+                for key,value in m.items():
+                    print(key + " " + value)
+            sleep(0.0005)
+    def registerModule(self,module=None):
         if not module:
             raise ValueError("No module specified")
         #TODO: implement
