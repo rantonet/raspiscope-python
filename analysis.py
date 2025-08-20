@@ -37,16 +37,24 @@ class Analysis():
         t = Thread(target=self.communicator.run)
         t.start()
         while True:
-            #TODO: implement get image_tata code
-            if image_data is None or image_data.size == 0:
-                raise ValueError("Provided image data cannot be None.")
-            if not reference_spectra_path.strip():
-                raise ValueError("Provided reference spectra path is empty")
-            if len(self.image.shape) == 3 and self.image.shape[2] == 3:
-                self.gray_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-            else:
-                self.gray_image = self.image
-            #TODO: end the function
+            if self.communicator.incomingQueue:
+                message = self.communicator.incomingQueue.pop(0)
+            if message:
+                if message["Message"] == "Stop":
+                    break
+                elif message["Message"] == "Analyze":
+                    #TODO: implement get image_tata code
+                    if image_data is None or image_data.size == 0:
+                        raise ValueError("Provided image data cannot be None.")
+                    if not reference_spectra_path.strip():
+                        raise ValueError("Provided reference spectra path is empty")
+                    if len(self.image.shape) == 3 and self.image.shape[2] == 3:
+                        self.gray_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+                    else:
+                        self.gray_image = self.image
+                    #TODO: end the function
+                elif message["Message"] == "Calibrate":
+                    self.calibrate(known_spectrum,known_peaks_pixels,known_peaks_wavelengths)
             sleep(0.001)
         self.communicator.outgoingQueue.append(
                                             {

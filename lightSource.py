@@ -33,6 +33,17 @@ class LightSource():
         t = Thread(target=self.communicator.run)
         t.start()
         while True:
+            if self.communicator.incomingQueue:
+                message = self.communicator.incomingQueue.pop(0)
+            if message:
+                if message["Message"] == "Stop":
+                    break
+                elif message["Message"] == "Calibrate":
+                    self.calibrate()
+                elif message["Message"] == "On":
+                    self.turnOn()
+                elif message["Message"] == "Off":
+                    self.turnOff
             sleep(0.001)
         self.communicator.outgoingQueue.append(
                                 {

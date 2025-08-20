@@ -27,12 +27,18 @@ class EventManager():
         for module in self.modules:
             self.runningModules.append(Process(target=module.run))
         for module in self.runningModules:
-            print("Starting client")
+            print(f'Starting {module.name}')
             module.start()
             sleep(0.001)
         
         while True: self.route()
-        
+        self.communicator.outgoingQueue.append(
+                                {
+                                    "Sender"      : self.name,
+                                    "Destination" : "All",
+                                    "Message"     : "stop"
+                                }
+                                            )
         for module in self.runningModules:
             module.terminate()
             module.join()
