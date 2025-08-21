@@ -10,8 +10,8 @@ from module import Module
 
 class Analysis(Module):
     """
-    Classe per l'analisi dello spettrogramma.
-    Eredita dalla classe base Module.
+    Class for spectrogram analysis.
+    Inherits from the base Module class.
     """
     def __init__(self, reference_spectra_path="", tolerance_nm=10):
         super().__init__("Analysis")
@@ -21,61 +21,61 @@ class Analysis(Module):
 
     def on_start(self):
         """
-        Metodo chiamato all'avvio del modulo.
-        Carica i dati di riferimento.
+        Method called when the module starts.
+        Loads the reference data.
         """
         try:
             self.reference_spectra = pandas.read_csv(self.reference_spectra_path)
             self.reference_spectra.set_index('wavelength', inplace=True)
-            print("Dati di riferimento caricati con successo.")
+            print("Reference data loaded successfully.")
         except FileNotFoundError:
-            print(f"ERRORE: File di riferimento non trovato: {self.reference_spectra_path}")
-            # Il modulo continuerà a funzionare ma non potrà analizzare
+            print(f"ERROR: Reference file not found: {self.reference_spectra_path}")
+            # The module will continue to run but will not be able to analyze
         except Exception as e:
-            print(f"ERRORE durante il caricamento dei dati di riferimento: {e}")
+            print(f"ERROR while loading reference data: {e}")
 
     def handle_message(self, message):
         """
-        Gestisce i messaggi in arrivo.
+        Handles incoming messages.
         """
         msg_type = message.get("Message", {}).get("type")
         payload = message.get("Message", {}).get("payload", {})
 
         if msg_type == "Analyze":
-            print("Ricevuto comando di analisi.")
+            print("Received analysis command.")
             if self.reference_spectra is None:
-                print("Impossibile analizzare: dati di riferimento non caricati.")
+                print("Cannot analyze: reference data not loaded.")
                 return
             
             image_b64 = payload.get("image")
             if image_b64:
-                # Decodifica l'immagine da Base64
+                # Decode the image from Base64
                 img_bytes = base64.b64decode(image_b64)
                 img_np = numpy.frombuffer(img_bytes, dtype=numpy.uint8)
                 image_data = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
                 
-                # Avvia l'analisi in un thread separato per non bloccare
+                # Start analysis in a separate thread to avoid blocking
                 analysis_thread = Thread(target=self.perform_analysis, args=(image_data,))
                 analysis_thread.start()
             else:
-                print("Comando 'Analyze' ricevuto senza dati immagine.")
+                print("'Analyze' command received without image data.")
 
     def perform_analysis(self, image_data):
         """
-        Esegue l'analisi dello spettrogramma.
-        Questa è una funzione di placeholder e dovrebbe essere implementata.
+        Performs the spectrogram analysis.
+        This is a placeholder function and should be implemented.
         """
-        print("Avvio analisi dello spettrogramma...")
-        # TODO: Implementare la logica di estrazione della striscia,
-        # calcolo dello spettrogramma e confronto.
+        print("Starting spectrogram analysis...")
+        # TODO: Implement the logic for strip extraction,
+        # spectrogram calculation, and comparison.
 
-        # Esempio di invio di risultati (dati fittizi)
-        time.sleep(2) # Simula il tempo di elaborazione
+        # Example of sending results (dummy data)
+        time.sleep(2) # Simulate processing time
         
         results = {
-            "substances": ["Sostanza A", "Sostanza B"],
+            "substances": ["Substance A", "Substance B"],
             "spectrogram_data": [1, 2, 3, 4, 5]
         }
         
         self.send_message("All", "AnalysisComplete", results)
-        print("Analisi completata e risultati inviati.")
+        print("Analysis complete and results sent.")

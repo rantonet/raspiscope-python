@@ -8,26 +8,26 @@ from cuvetteSensor import CuvetteSensor
 from lightSource import LightSource
 
 def load_config():
-    """Carica la configurazione dal file config.json."""
+    """Loads the configuration from the config.json file."""
     try:
         with open('config.json', 'r') as f:
             return json.load(f)
     except FileNotFoundError:
-        print("Errore: file 'config.json' non trovato. Creane uno basato su 'config.example.json'")
+        print("Error: 'config.json' file not found. Please create one based on 'config.example.json'")
         exit(1)
     except json.JSONDecodeError:
-        print("Errore: 'config.json' non è un file JSON valido.")
+        print("Error: 'config.json' is not a valid JSON file.")
         exit(1)
 
 def main():
     """
-    Punto di ingresso principale dell'applicazione.
-    Carica la configurazione, istanzia tutti i moduli e avvia l'EventManager.
+    Main entry point of the application.
+    Loads the configuration, instantiates all modules, and starts the EventManager.
     """
     config = load_config()
 
     try:
-        # Istanziazione dei moduli con i parametri dalla configurazione
+        # Instantiation of modules with parameters from the configuration
         camera_module = Camera(
             config=config.get('camera', {})
         )
@@ -36,16 +36,16 @@ def main():
         )
         light_source_module = LightSource(
             pin=config.get('light_source', {}).get('pin'),
-            dma=config.get('light_source', {}).get('dma', 10), # Valore di default
-            brightness=config.get('light_source', {}).get('brightness', 0.8), # Valore di default
-            pwm_channel=config.get('light_source', {}).get('pwm_channel', 0) # Valore di default
+            dma=config.get('light_source', {}).get('dma', 10), # Default value
+            brightness=config.get('light_source', {}).get('brightness', 0.8), # Default value
+            pwm_channel=config.get('light_source', {}).get('pwm_channel', 0) # Default value
         )
         analysis_module = Analysis(
             reference_spectra_path=config.get('analysis', {}).get('reference_spectra_path'),
-            tolerance_nm=config.get('analysis', {}).get('tolerance_nm', 10) # Valore di default
+            tolerance_nm=config.get('analysis', {}).get('tolerance_nm', 10) # Default value
         )
 
-        # Lista dei moduli da passare all'EventManager
+        # List of modules to pass to the EventManager
         modules_to_run = [
             camera_module,
             cuvette_sensor_module,
@@ -53,14 +53,14 @@ def main():
             analysis_module
         ]
 
-        # Creazione e avvio dell'EventManager
+        # Creation and startup of the EventManager
         event_manager = EventManager(modules=modules_to_run)
         event_manager.run()
 
     except KeyError as e:
-        print(f"Errore: chiave di configurazione mancante in 'config.json': {e}")
+        print(f"Error: missing configuration key in 'config.json': {e}")
     except Exception as e:
-        print(f"Si è verificato un errore imprevisto durante l'inizializzazione: {e}")
+        print(f"An unexpected error occurred during initialization: {e}")
 
 if __name__ == "__main__":
     main()

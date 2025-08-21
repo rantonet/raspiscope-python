@@ -4,49 +4,49 @@ from module import Module
 
 class LightSource(Module):
     """
-    Gestisce un LED RGB (es. NeoPixel).
-    Eredita dalla classe base Module.
+    Manages an RGB LED (e.g., NeoPixel).
+    Inherits from the base Module class.
     """
     def __init__(self, pin, dma, brightness, pwm_channel):
         super().__init__("LightSource")
         self.pin = pin
         self.dma = dma
-        self.brightness = int(brightness * 255) # La libreria vuole un valore 0-255
+        self.brightness = int(brightness * 255) # The library wants a value from 0-255
         self.pwm_channel = pwm_channel
         self.led = None
         self.white_color = Color(255, 255, 255)
 
     def on_start(self):
         """
-        Inizializza la striscia LED.
+        Initializes the LED strip.
         """
         try:
-            # La libreria rpi_ws281x richiede privilegi di root per essere eseguita
+            # The rpi_ws281x library requires root privileges to run
             self.led = PixelStrip(
                 1, self.pin, 800000, self.dma, False, self.brightness, self.pwm_channel
             )
             self.led.begin()
-            self.turn_off() # Assicura che il LED sia spento all'avvio
-            print("Sorgente luminosa inizializzata.")
+            self.turn_off() # Ensure the LED is off on startup
+            print("Light source initialized.")
         except Exception as e:
-            print(f"ERRORE: Impossibile inizializzare la sorgente luminosa. Esegui come root? Dettagli: {e}")
+            print(f"ERROR: Could not initialize light source. Run as root? Details: {e}")
             self.led = None
 
     def handle_message(self, message):
         """
-        Gestisce i messaggi in arrivo.
+        Handles incoming messages.
         """
         if not self.led:
-            print("Sorgente luminosa non disponibile, ignoro il comando.")
+            print("Light source not available, ignoring command.")
             return
 
         msg_type = message.get("Message", {}).get("type")
         
         if msg_type == "CuvettePresent":
-            print("Cuvetta presente, accendo la luce.")
+            print("Cuvette present, turning on the light.")
             self.turn_on()
         elif msg_type == "CuvetteAbsent":
-            print("Cuvetta assente, spengo la luce.")
+            print("Cuvette absent, turning off the light.")
             self.turn_off()
         elif msg_type == "TurnOn":
             self.turn_on()
@@ -54,14 +54,14 @@ class LightSource(Module):
             self.turn_off()
 
     def turn_on(self):
-        """Accende il LED con colore bianco."""
+        """Turns the LED on with a white color."""
         if self.led:
             self.led.setPixelColor(0, self.white_color)
             self.led.show()
             self.send_message("All", "LightTurnedOn")
 
     def turn_off(self):
-        """Spegne il LED."""
+        """Turns the LED off."""
         if self.led:
             self.led.setPixelColor(0, Color(0, 0, 0))
             self.led.show()
@@ -69,7 +69,7 @@ class LightSource(Module):
 
     def on_stop(self):
         """
-        Assicura che il LED sia spento alla terminazione del modulo.
+        Ensures the LED is turned off when the module terminates.
         """
-        print("Spegnimento sorgente luminosa...")
+        print("Shutting down light source...")
         self.turn_off()

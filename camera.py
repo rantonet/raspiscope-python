@@ -8,8 +8,8 @@ from module import Module
 
 class Camera(Module):
     """
-    Gestisce la PiCamera.
-    Eredita dalla classe base Module.
+    Manages the PiCamera.
+    Inherits from the base Module class.
     """
     def __init__(self, config):
         super().__init__("Camera")
@@ -18,7 +18,7 @@ class Camera(Module):
 
     def on_start(self):
         """
-        Inizializza e configura la fotocamera all'avvio del modulo.
+        Initializes and configures the camera when the module starts.
         """
         try:
             self.camera = Picamera2()
@@ -26,70 +26,70 @@ class Camera(Module):
             cam_config = self.camera.create_still_configuration({"size": resolution})
             self.camera.configure(cam_config)
             self.camera.start()
-            print("Fotocamera avviata e configurata.")
+            print("Camera started and configured.")
         except Exception as e:
-            print(f"ERRORE: Impossibile inizializzare la fotocamera: {e}")
-            self.camera = None # Assicura che la fotocamera sia None se fallisce
+            print(f"ERROR: Could not initialize camera: {e}")
+            self.camera = None # Ensure camera is None if it fails
 
     def handle_message(self, message):
         """
-        Gestisce i messaggi in arrivo.
+        Handles incoming messages.
         """
         if not self.camera:
-            print("Fotocamera non disponibile, ignoro il comando.")
+            print("Camera not available, ignoring command.")
             return
 
         msg_type = message.get("Message", {}).get("type")
         
         if msg_type == "CuvettePresent":
-            print("Ricevuto segnale di cuvetta presente. Scatto una foto.")
+            print("Received cuvette present signal. Taking a picture.")
             self.take_picture()
         elif msg_type == "Take":
-            print("Ricevuto comando 'Take'. Scatto una foto.")
+            print("Received 'Take' command. Taking a picture.")
             self.take_picture()
         elif msg_type == "Calibrate":
-            print("Ricevuto comando 'Calibrate'. Avvio calibrazione.")
+            print("Received 'Calibrate' command. Starting calibration.")
             self.calibrate()
 
     def take_picture(self):
         """
-        Scatta una foto e la invia al modulo Analysis.
+        Takes a picture and sends it to the Analysis module.
         """
         if not self.camera:
-            print("Impossibile scattare foto, fotocamera non inizializzata.")
+            print("Cannot take picture, camera not initialized.")
             return
             
         try:
-            print("Scatto foto...")
-            # Cattura l'immagine come array numpy
+            print("Taking picture...")
+            # Capture the image as a numpy array
             image_array = self.camera.capture_array()
             
-            # Codifica l'immagine in formato JPG e poi in Base64
+            # Encode the image in JPG format and then in Base64
             _, buffer = cv2.imencode('.jpg', image_array)
             image_b64 = base64.b64encode(buffer).decode('utf-8')
             
             payload = {"image": image_b64}
             self.send_message("Analysis", "Analyze", payload)
-            print("Foto scattata e inviata per l'analisi.")
+            print("Picture taken and sent for analysis.")
             
         except Exception as e:
-            print(f"ERRORE durante lo scatto della foto: {e}")
+            print(f"ERROR while taking picture: {e}")
 
     def calibrate(self):
         """
-        Esegue la calibrazione della fotocamera.
-        Placeholder per la logica di calibrazione effettiva.
+        Performs camera calibration.
+        Placeholder for the actual calibration logic.
         """
-        print("Avvio calibrazione fotocamera...")
-        # TODO: Implementare la logica di calibrazione (es. bilanciamento del bianco, esposizione).
-        time.sleep(2) # Simula il tempo di calibrazione
+        print("Starting camera calibration...")
+        # TODO: Implement calibration logic (e.g., white balance, exposure).
+        time.sleep(2) # Simulate calibration time
         self.send_message("All", "CameraCalibrated", {"status": "success"})
-        print("Calibrazione fotocamera completata.")
+        print("Camera calibration complete.")
 
     def on_stop(self):
         """
-        Ferma la fotocamera quando il modulo viene terminato.
+        Stops the camera when the module is terminated.
         """
         if self.camera and self.camera.started:
             self.camera.stop()
-            print("Fotocamera fermata.")
+            print("Camera stopped.")

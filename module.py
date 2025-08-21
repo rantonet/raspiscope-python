@@ -6,8 +6,8 @@ from threading import Thread, Event
 
 class Module:
     """
-    Classe base astratta per tutti i moduli funzionali.
-    Gestisce la comunicazione client, il ciclo di vita e la gestione dei messaggi.
+    Abstract base class for all functional modules.
+    Manages client communication, lifecycle, and message handling.
     """
     def __init__(self, name, addr="127.0.0.1", port=1025):
         self.name = name
@@ -18,14 +18,14 @@ class Module:
 
     def run(self):
         """
-        Punto di ingresso principale per il processo del modulo.
-        Avvia la comunicazione e il ciclo di vita del modulo.
+        Main entry point for the module's process.
+        Starts the communicator and the module's lifecycle.
         """
-        print(f"Modulo '{self.name}' in avvio.")
+        print(f"Module '{self.name}' starting.")
         self.communicator_thread = Thread(target=self.start_communicator)
         self.communicator_thread.start()
 
-        # Attendi che la connessione sia stabilita
+        # Wait for the connection to be established
         while not self.websocket and not self.stop_event.is_set():
             time.sleep(0.1)
         
@@ -36,58 +36,58 @@ class Module:
         self.on_stop()
         if self.communicator_thread:
             self.communicator_thread.join()
-        print(f"Modulo '{self.name}' terminato.")
+        print(f"Module '{self.name}' terminated.")
 
     def start_communicator(self):
-        """Avvia il client di comunicazione in un loop asyncio."""
+        """Starts the communication client in an asyncio loop."""
         asyncio.run(self.communicator_client())
 
     async def communicator_client(self):
-        """Logica del client WebSocket."""
+        """WebSocket client logic."""
         try:
             async with websockets.connect(self.communicator_uri) as websocket:
                 self.websocket = websocket
                 await self.register()
                 
-                # Loop per ricevere messaggi
+                # Loop to receive messages
                 while not self.stop_event.is_set():
                     try:
                         message_str = await asyncio.wait_for(websocket.recv(), timeout=0.1)
                         message = json.loads(message_str)
                         
-                        # Gestione speciale del messaggio di stop
+                        # Special handling for the stop message
                         if message.get("Message", {}).get("type") == "Stop":
-                            print(f"Modulo '{self.name}' ha ricevuto il segnale di stop.")
+                            print(f"Module '{self.name}' received stop signal.")
                             self.stop_event.set()
                             break
                         
                         self.handle_message(message)
                     except asyncio.TimeoutError:
-                        continue # Nessun messaggio, continua a controllare lo stop_event
+                        continue # No message, continue checking the stop_event
                     except json.JSONDecodeError:
-                        print(f"Errore di decodifica JSON nel modulo '{self.name}'")
+                        print(f"JSON decode error in module '{self.name}'")
         except (websockets.exceptions.ConnectionClosed, ConnectionRefusedError) as e:
-            print(f"Connessione fallita per '{self.name}': {e}")
+            print(f"Connection failed for '{self.name}': {e}")
             self.websocket = None
-            self.stop_event.set() # Ferma il modulo se non può connettersi
+            self.stop_event.set() # Stop the module if it cannot connect
 
     async def register(self):
-        """Invia un messaggio di registrazione al server."""
+        """Sends a registration message to the server."""
         reg_message = {
             "Sender": self.name,
             "Destination": "EventManager",
             "Message": {"type": "register"}
         }
         await self.websocket.send(json.dumps(reg_message))
-        print(f"Modulo '{self.name}' registrato.")
+        print(f"Module '{self.name}' registered.")
 
     def send_message(self, destination, msg_type, payload=None):
         """
-        Invia un messaggio al server EventManager.
-        Questo metodo può essere chiamato da un thread non-asyncio.
+        Sends a message to the EventManager server.
+        This method can be called from a non-asyncio thread.
         """
         if not self.websocket:
-            print(f"Impossibile inviare messaggio: '{self.name}' non è connesso.")
+            print(f"Cannot send message: '{self.name}' is not connected.")
             return
 
         message = {
@@ -98,39 +98,39 @@ class Module:
                 "payload": payload if payload is not None else {}
             }
         }
-        # Esegui l'invio nel loop di eventi del comunicatore
+        # Run the send in the communicator's event loop
         asyncio.run_coroutine_threadsafe(
             self.websocket.send(json.dumps(message)),
             asyncio.get_running_loop()
         )
 
-    # --- Metodi da sovrascrivere nelle classi figlie ---
+    # --- Methods to be overridden in child classes ---
 
     def on_start(self):
         """
-        Chiamato una volta dopo che la connessione è stata stabilita.
-        Utile per l'inizializzazione di hardware, ecc.
+        Called once after the connection has been established.
+        Useful for initializing hardware, etc.
         """
         pass
 
     def main_loop(self):
         """
-        Il loop principale del modulo.
-        Il comportamento predefinito è attendere l'evento di stop.
-        Può essere sovrascritto per moduli che necessitano di un'azione continua.
+        The main loop of the module.
+        The default behavior is to wait for the stop event.
+        Can be overridden for modules that need continuous action.
         """
         self.stop_event.wait()
 
     def handle_message(self, message):
         """
-        Chiamato ogni volta che arriva un messaggio dal server.
-        La logica specifica del modulo va qui.
+        Called whenever a message arrives from the server.
+        Module-specific logic goes here.
         """
         pass
 
     def on_stop(self):
         """
-        Chiamato prima che il modulo termini.
-        Utile per la pulizia delle risorse (es. pin GPIO, file).
+        Called before the module terminates.
+        Useful for cleaning up resources (e.g., GPIO pins, files).
         """
         pass
