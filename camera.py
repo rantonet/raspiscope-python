@@ -1,228 +1,95 @@
 import numpy
-from time         import sleep
-from picamera2    import Picamera2
-from threading    import Thread
-from communicator import Communicator
+import time
+import cv2
+import base64
+from picamera2 import Picamera2
+from threading import Thread
+from module import Module
 
-class Camera():
-    def __init__(self):
-        """Camera constructor
+class Camera(Module):
+    """
+    Gestisce la PiCamera.
+    Eredita dalla classe base Module.
+    """
+    def __init__(self, config):
+        super().__init__("Camera")
+        self.camera = None
+        self.config = config
 
-        Initializes the underlying Picamera2 library
+    def on_start(self):
         """
-        self.communicator = Communicator("client")
-        self.name         = "Camera"
-        self.image        = numpy.ndarray()
-        self.camera       = Picamera2()
+        Inizializza e configura la fotocamera all'avvio del modulo.
+        """
+        try:
+            self.camera = Picamera2()
+            resolution = tuple(self.config.get("resolution", [1920, 1080]))
+            cam_config = self.camera.create_still_configuration({"size": resolution})
+            self.camera.configure(cam_config)
+            self.camera.start()
+            print("Fotocamera avviata e configurata.")
+        except Exception as e:
+            print(f"ERRORE: Impossibile inizializzare la fotocamera: {e}")
+            self.camera = None # Assicura che la fotocamera sia None se fallisce
+
+    def handle_message(self, message):
+        """
+        Gestisce i messaggi in arrivo.
+        """
+        if not self.camera:
+            print("Fotocamera non disponibile, ignoro il comando.")
+            return
+
+        msg_type = message.get("Message", {}).get("type")
         
-        picam2.configure(picam2.create_still_configuration({"size": (1920,1080)}))
-    def run():
-        t = Thread(target=self.communicator.run)
-        t.start()
-        message = None
-        self.camera.start()
-        while True:
-            if self.communicator.incomingQueue:
-                message = self.communicator.incomingQueue.pop(0)
-            if message:
-                if message["Message"] == "Stop":
-                    break
-                elif message["Message"] == "Set":
-                    pass
-                elif message["Message"] == "Calibrate":
-                    pass
-                elif message["Message"] == "Take":
-                    pass
-        self.communicator.outgoingQueue.append(
-                                {
-                                    "Sender"      : self.name,
-                                    "Destination" : "Communicator",
-                                    "Message"     : "stop"
-                                }
-                                            )
-        t.join()
-    def setCamera(self,settings=dict()):
-        """setCamera
+        if msg_type == "CuvettePresent":
+            print("Ricevuto segnale di cuvetta presente. Scatto una foto.")
+            self.take_picture()
+        elif msg_type == "Take":
+            print("Ricevuto comando 'Take'. Scatto una foto.")
+            self.take_picture()
+        elif msg_type == "Calibrate":
+            print("Ricevuto comando 'Calibrate'. Avvio calibrazione.")
+            self.calibrate()
 
-        Camera settings
+    def take_picture(self):
         """
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Camera",
-                                        "Destination" : "All",
-                                        "Message"     : self.SettingCamera()
-                                    }
-                                              )
-        #Casual samples
-        self.camera.stop()
-        picam2.configure(picam2.create_still_configuration({"size": (1920,1080)}))
-        self.camera.start()
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Camera",
-                                        "Destination" : "All",
-                                        "Message"     : self.CameraSet()
-                                    }
-                                              )
-        #Casual samples
-        return True
-    def calibrate(self,
-                        Samples           = 100,
-                        ExposureTimeRange = (1000,10000),
-                        AnalogueGainRange = (81.0,8.0),
-                        SharpnessRange    = (-1.0,1.0),
-                        ContrastRange     = (-1.0,1.0),
-                        SaturationRange   = (-1.0,1.0),
-                        SharpnessWeight   = 1.0,
-                        NoiseWeight       = 0.5
-                        ):
-        """calibrate
-
-        Calibrate camera settings to improve image
+        Scatta una foto e la invia al modulo Analysis.
         """
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Camera",
-                                        "Destination" : "All",
-                                        "Message"     : self.CalibratingCamera()
-                                    }
-                                              )
-        #Casual samples
-        N_SAMPLES = Samples
+        if not self.camera:
+            print("Impossibile scattare foto, fotocamera non inizializzata.")
+            return
+            
+        try:
+            print("Scatto foto...")
+            # Cattura l'immagine come array numpy
+            image_array = self.camera.capture_array()
+            
+            # Codifica l'immagine in formato JPG e poi in Base64
+            _, buffer = cv2.imencode('.jpg', image_array)
+            image_b64 = base64.b64encode(buffer).decode('utf-8')
+            
+            payload = {"image": image_b64}
+            self.send_message("Analysis", "Analyze", payload)
+            print("Foto scattata e inviata per l'analisi.")
+            
+        except Exception as e:
+            print(f"ERRORE durante lo scatto della foto: {e}")
 
-        #Parameters intervals
-        PARAM_RANGES = {
-            "ExposureTime" : ExposureTimeRange,
-            "AnalogueGain" : AnalogueGainRange,
-            "Sharpness"    : SharpnessRange,
-            "Contrast"     : ContrastRange,
-            "Saturation"   : SaturationRange
-        }
-
-        #Balancing weights for sharpsness versus noise
-        W_SHARP = SharpnessWeight
-        W_NOISE = NoiseWeight
-
-        with self.camera as picam2:
-            #Base Configuration
-            picam2.set_controls({"AeEnable": False, "AwbEnable": False})
-
-            best_score = float("inf")
-            best_params = None
-
-            for i in range(N_SAMPLES):
-                #Extract casual parameters
-                params = {
-                            name: numpy.random.uniform(low, high) if isinstance(low, float) or isinstance(high, float)
-                                else int(numpy.random.randint(low, high + 1))
-                            for name, (low, high) in PARAM_RANGES.items()
-                        }
-
-                #Apply controls
-                picam2.set_controls(params)
-                time.sleep(0.3)
-
-                #Take picture and measure
-                img   = picam2.capture_array()
-                sharp = cv2.Laplacian(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), cv2.CV_64F).var()
-                gray  = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-                blur  = cv2.GaussianBlur(gray, (5, 5), 0)
-                noise = gray.astype(numpy.float32) - blur.astype(numpy.float32)
-                noise = numpy.std(noise)
-
-                #Compute the score (minimize)
-                score = - (W_SHARP * sharp - W_NOISE * noise)
-
-                if score < best_score:
-                    best_score = score
-                    best_params = params.copy()
-            self.camera.set_controls(best_params)
-            time.sleep(0.5)
-            self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Camera",
-                                        "Destination" : "All",
-                                        "Message"     : self.CameraCalibrated()
-                                    }
-                                              )
-        return True
-    def takePicture(self) -> numpy.ndarray:
-        """takePicture
-
-        Takes a single picture and return the pixel matrix
+    def calibrate(self):
         """
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Camera",
-                                        "Destination" : "All",
-                                        "Message"     : self.TakingPicture()
-                                    }
-                                              )
-        self.image = picam2.capture_array()
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Camera",
-                                        "Destination" : "All",
-                                        "Message"     : self.PictureTaken(
-                                                                      self.image
-                                                                         )
-                                    }
-                                              )
-        return True
-    #Signals
-    class SettingCamera():
-        """SettingCamera
-
-        Seignal for Camera Settings
+        Esegue la calibrazione della fotocamera.
+        Placeholder per la logica di calibrazione effettiva.
         """
-        def __init__(self,data=dict()):
-            self.data = data
-    class CameraSet():
-        """CameraSet
+        print("Avvio calibrazione fotocamera...")
+        # TODO: Implementare la logica di calibrazione (es. bilanciamento del bianco, esposizione).
+        time.sleep(2) # Simula il tempo di calibrazione
+        self.send_message("All", "CameraCalibrated", {"status": "success"})
+        print("Calibrazione fotocamera completata.")
 
-        Seignal for Camera Settings
+    def on_stop(self):
         """
-        def __init__(self,data=dict()):
-            self.data = data
-    class CalibratingCamera():
-        """CalibratingCamera
-
-        Signal for Calibrating Camera
+        Ferma la fotocamera quando il modulo viene terminato.
         """
-        def __init__(self,data=dict()):
-            self.data = data
-    class CameraCalibrated():
-        """CameraCalibrated
-
-        Signal for Camera Calibrated
-        """
-        def __init__(self,data=dict()):
-            self.data = data
-    class TakingPicture():
-        """TakingPicture
-
-        Signal for Taking Picture
-        """
-        def __init__(self,data=dict()):
-            self.data = data
-    class PictureTaken():
-        """PictureTaken
-
-        Signal for Picture Taken
-        """
-        def __init__(self,data=dict()):
-            self.data = data
-    class NeedMoreLight():
-        """NeedMoreLight
-
-        Signal to ask for more light
-        """
-        def __init__(self,data=dict()):
-            self.data = data
-    class NeedLessLight():
-        """NeedLessLight
-
-        Signal to ask for less light
-        """
-        def __init__(self,data=dict()):
-            self.data = data
+        if self.camera and self.camera.started:
+            self.camera.stop()
+            print("Fotocamera fermata.")

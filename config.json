@@ -1,0 +1,22 @@
+{
+    "cuvette_sensor": {
+        "input_pin": 17
+    },
+    "light_source": {
+        "pin": 18,
+        "dma": 10,
+        "brightness": 0.8,
+        "pwm_channel": 0
+    },
+    "camera": {
+        "resolution": [1920, 1080]
+    },
+    "analysis": {
+        "reference_spectra_path": "reference_spectra.csv",
+        "tolerance_nm": 10
+    },
+    "communicator": {
+        "address": "127.0.0.1",
+        "port": 1025
+    }
+}

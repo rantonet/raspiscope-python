@@ -1,127 +1,75 @@
-from time         import sleep
-from rpi_ws281x   import PixelStrip,Color
-from threading    import Thread
-from communicator import Communicator
+import time
+from rpi_ws281x import PixelStrip, Color
+from module import Module
 
-class LightSource():
-    """LightSource
-
-    Class for Light Source management
+class LightSource(Module):
     """
-    def __init__(self,pin,dma,brightness,pwmChannel):
-        """LightSource constructor
+    Gestisce un LED RGB (es. NeoPixel).
+    Eredita dalla classe base Module.
+    """
+    def __init__(self, pin, dma, brightness, pwm_channel):
+        super().__init__("LightSource")
+        self.pin = pin
+        self.dma = dma
+        self.brightness = int(brightness * 255) # La libreria vuole un valore 0-255
+        self.pwm_channel = pwm_channel
+        self.led = None
+        self.white_color = Color(255, 255, 255)
 
-        Initialize the LED output with the required pin
+    def on_start(self):
         """
-        self.name         = "LightSensor"
-        self.communicator = Comunicator("client")
-        self.pin          = pin
-        self.dma          = dma
-        self.pwmChannel   = pwmChannel
-        self.brightness   = brightness
-        self.led          = PixelStrip( 1,
-                                        self.pin,
-                                        800000,
-                                        self.dma,
-                                        False,
-                                        self.brightness,
-                                        self.pwmChannel
-                                    )
-        self.white = Color(255,255,255)
-        self.led.begin()
-    def run(self):
-        t = Thread(target=self.communicator.run)
-        t.start()
-        while True:
-            if self.communicator.incomingQueue:
-                message = self.communicator.incomingQueue.pop(0)
-            if message:
-                if message["Message"] == "Stop":
-                    break
-                elif message["Message"] == "Calibrate":
-                    self.calibrate()
-                elif message["Message"] == "On":
-                    self.turnOn()
-                elif message["Message"] == "Off":
-                    self.turnOff
-            sleep(0.001)
-        self.communicator.outgoingQueue.append(
-                                {
-                                    "Sender"      : self.name,
-                                    "Destination" : "Communicator",
-                                    "Message"     : "stop"
-                                }
-                                            )
-        t.join()
-    def calibrate(self,rgb=[255,255,255],brightness=255):
-        strip.setPixelColor(0, Color(rgb[0],rgb[1],rgb[2]))
-        strip.setBrightness(brightness)
-        strip.show()
-        return True
-    def turnOn(self):
-        """turnOn
+        Inizializza la striscia LED.
+        """
+        try:
+            # La libreria rpi_ws281x richiede privilegi di root per essere eseguita
+            self.led = PixelStrip(
+                1, self.pin, 800000, self.dma, False, self.brightness, self.pwm_channel
+            )
+            self.led.begin()
+            self.turn_off() # Assicura che il LED sia spento all'avvio
+            print("Sorgente luminosa inizializzata.")
+        except Exception as e:
+            print(f"ERRORE: Impossibile inizializzare la sorgente luminosa. Esegui come root? Dettagli: {e}")
+            self.led = None
 
-        Turn on the LED at maximum brightness
+    def handle_message(self, message):
         """
-        self.led.setPixelColor(0,self.white)
-        self.led.show()
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Light",
-                                        "Destination" : "All",
-                                        "Message"     : self.LightTurnedOn()
-                                    }
-                                              )
-        return True
-    def turnOff(self):
-        """turnOff
+        Gestisce i messaggi in arrivo.
+        """
+        if not self.led:
+            print("Sorgente luminosa non disponibile, ignoro il comando.")
+            return
 
-        turn off the LED
-        """
-        self.led.setBrightness(0)
-        self.led.show()
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Light",
-                                        "Destination" : "All",
-                                        "Message"     : self.LightTurnedOff()
-                                    }
-                                              )
-        return True
-    def dim(self,v=0.5):
-        """dim
+        msg_type = message.get("Message", {}).get("type")
+        
+        if msg_type == "CuvettePresent":
+            print("Cuvetta presente, accendo la luce.")
+            self.turn_on()
+        elif msg_type == "CuvetteAbsent":
+            print("Cuvetta assente, spengo la luce.")
+            self.turn_off()
+        elif msg_type == "TurnOn":
+            self.turn_on()
+        elif msg_type == "TurnOff":
+            self.turn_off()
 
-        Sets the brightness of the led
-        """
-        self.brightness = v
-        self.led.setBrightness(self.brightness)
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Light",
-                                        "Destination" : "All",
-                                        "Message"     : self.LightDimmed()
-                                    }
-                                              )
-        return True
-    #Signals
-    class LightTurnedOn():
-        """LightTurnedOn
+    def turn_on(self):
+        """Accende il LED con colore bianco."""
+        if self.led:
+            self.led.setPixelColor(0, self.white_color)
+            self.led.show()
+            self.send_message("All", "LightTurnedOn")
 
-        Signal for Light Turned On
-        """
-        def __init__(self,data=dict()):
-            self.data = data
-    class LightTurnedOff():
-        """LightTurnedOff
+    def turn_off(self):
+        """Spegne il LED."""
+        if self.led:
+            self.led.setPixelColor(0, Color(0, 0, 0))
+            self.led.show()
+            self.send_message("All", "LightTurnedOff")
 
-        Signal for Light Turned Off
+    def on_stop(self):
         """
-        def __init__(self,data=dict()):
-            self.data = data
-    class LightDimmed():
-        """LightDimmed
-
-        Signal for Light Dimmed
+        Assicura che il LED sia spento alla terminazione del modulo.
         """
-        def __init__(self,data=dict()):
-            self.data = data
+        print("Spegnimento sorgente luminosa...")
+        self.turn_off()
