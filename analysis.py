@@ -13,10 +13,11 @@ class Analysis(Module):
     Class for spectrogram analysis.
     Inherits from the base Module class.
     """
-    def __init__(self, reference_spectra_path="", tolerance_nm=10):
-        super().__init__("Analysis")
-        self.reference_spectra_path = reference_spectra_path
-        self.tolerance_nm = tolerance_nm
+    def __init__(self, config, network_config, system_config):
+        super().__init__("Analysis", network_config, system_config)
+        self.config = config
+        self.reference_spectra_path = self.config['reference_spectra_path']
+        self.tolerance_nm = self.config['tolerance_nm']
         self.reference_spectra = None
 
     def on_start(self):
@@ -27,13 +28,11 @@ class Analysis(Module):
         try:
             self.reference_spectra = pandas.read_csv(self.reference_spectra_path)
             self.reference_spectra.set_index('wavelength', inplace=True)
-            print("Reference data loaded successfully.")
+            print(f"Reference data loaded successfully from '{self.reference_spectra_path}'.")
         except FileNotFoundError:
             print(f"ERROR: Reference file not found: {self.reference_spectra_path}")
-            # The module will continue to run but will not be able to analyze
         except Exception as e:
             print(f"ERROR while loading reference data: {e}")
-
     def handle_message(self, message):
         """
         Handles incoming messages.

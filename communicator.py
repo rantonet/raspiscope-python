@@ -2,7 +2,7 @@
 import json
 import asyncio
 import websockets
-from queue import Queue, Empty
+from queue     import Queue, Empty,Full
 from threading import RLock, Event
 
 class Communicator:
@@ -10,33 +10,31 @@ class Communicator:
     Manages WebSocket communication for a module or the EventManager.
     It uses thread-safe queues to decouple network I/O from the main logic.
     """
-    def __init__(self, comm_type="client", name="Communicator", addr="127.0.0.1", port=1025):
+    def __init__(self, comm_type, name, config):
         """
         Initializes the Communicator.
 
         Args:
             comm_type (str): The type of communicator, either "client" or "server".
             name (str): The name of the owner module, used for registration.
-            addr (str): The IP address to connect to or host on.
-            port (int): The port to connect to or host on.
+            config (dict): A dictionary containing network configuration.
+                           Expected keys: 'address', 'port', 'client_reconnect_delay_s'.
         """
         self.name = name
         self.type = comm_type
-        self.uri = f"ws://{addr}:{port}"
+        self.config = config
+        self.uri = f"ws://{self.config['address']}:{self.config['port']}"
         
-        # Thread-safe queues for communication between the communicator thread and the main thread
         self.incomingQueue = Queue()
         self.outgoingQueue = Queue()
 
-        # Server-specific attributes
         self.clients = {}
         self.lock = RLock()
         
-        # Attributes for managing the asyncio loop
         self.loop = None
 
     def run(self, stop_event: Event):
-        """Entry point for the communicator thread."""
+        #... (il resto del metodo run rimane invariato)
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         
@@ -48,15 +46,13 @@ class Communicator:
         self.loop.close()
 
     async def start_server(self, stop_event: Event):
-        """Starts the WebSocket server and the central consumer task."""
+        #... (il resto del metodo rimane invariato)
         print(f"Server listening on {self.uri}")
         host, port = self.uri.split('//')[1].split(':')
         
-        # Start the single consumer task for the server
         consumer_task = asyncio.create_task(self.server_consumer(stop_event))
 
         async with websockets.serve(self.server_handler, host, int(port)):
-            # Wait for either the stop event or the consumer to finish
             done, pending = await asyncio.wait(
                 [consumer_task, self.loop.create_task(stop_event.wait())],
                 return_when=asyncio.FIRST_COMPLETED
@@ -66,14 +62,13 @@ class Communicator:
 
     async def start_client(self, stop_event: Event):
         """Starts the WebSocket client and handles reconnection."""
+        reconnect_delay = self.config.get("client_reconnect_delay_s", 3)
         while not stop_event.is_set():
             try:
                 async with websockets.connect(self.uri) as websocket:
                     print(f"Module '{self.name}' connected to server.")
-                    # Send the registration message
                     await self.register(websocket)
                     
-                    # Start consumer and producer tasks in parallel
                     consumer_task = asyncio.create_task(self.client_consumer(websocket, stop_event))
                     producer_task = asyncio.create_task(self.producer(websocket))
                     
@@ -84,12 +79,11 @@ class Communicator:
                     for task in pending:
                         task.cancel()
             except (ConnectionRefusedError, websockets.exceptions.ConnectionClosed) as e:
-                print(f"Connection failed for '{self.name}': {e}. Retrying in 3 seconds...")
-                await asyncio.sleep(3)
+                print(f"Connection failed for '{self.name}': {e}. Retrying in {reconnect_delay} seconds...")
+                await asyncio.sleep(reconnect_delay)
             except Exception as e:
                 print(f"Unexpected error in client communicator: {e}")
                 break
-
     async def server_handler(self, websocket, path):
         """Handles connections from individual clients to the server."""
         client_name = None
@@ -102,7 +96,10 @@ class Communicator:
                 with self.lock:
                     self.clients[client_name] = websocket
                 print(f"Client '{client_name}' connected and registered.")
-                self.incomingQueue.put(reg_message) # Forward the registration message
+                try:
+                    self.incomingQueue.put(reg_message) # Forward the registration message
+                except Full:
+                    pass
             else:
                 return
 
@@ -126,6 +123,8 @@ class Communicator:
                 self.incomingQueue.put(message)
             except json.JSONDecodeError:
                 print(f"JSON decode error: {message_str}")
+            except Full:
+                pass
 
     async def server_consumer(self, stop_event: Event):
         """
@@ -173,6 +172,8 @@ class Communicator:
                 self.outgoingQueue.task_done()
             except Empty:
                 await asyncio.sleep(0.01) # Non-blocking wait
+            except Full:
+                pass
             except websockets.exceptions.ConnectionClosed:
                 break
 

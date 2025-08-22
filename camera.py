@@ -11,8 +11,8 @@ class Camera(Module):
     Manages the PiCamera.
     Inherits from the base Module class.
     """
-    def __init__(self, config):
-        super().__init__("Camera")
+    def __init__(self, config, network_config, system_config):
+        super().__init__("Camera", network_config, system_config)
         self.camera = None
         self.config = config
 
@@ -22,14 +22,15 @@ class Camera(Module):
         """
         try:
             self.camera = Picamera2()
-            resolution = tuple(self.config.get("resolution", [1920, 1080]))
+            # La risoluzione viene letta direttamente dalla configurazione iniettata
+            resolution = tuple(self.config['resolution'])
             cam_config = self.camera.create_still_configuration({"size": resolution})
             self.camera.configure(cam_config)
             self.camera.start()
-            print("Camera started and configured.")
+            print(f"Camera started and configured with resolution {resolution}.")
         except Exception as e:
             print(f"ERROR: Could not initialize camera: {e}")
-            self.camera = None # Ensure camera is None if it fails
+            self.camera = None
 
     def handle_message(self, message):
         """
