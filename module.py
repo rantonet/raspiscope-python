@@ -91,12 +91,12 @@ class Module:
             return
 
         message = {
-            "Sender": self.name,
-            "Destination": destination,
-            "Message": {
-                "type": msg_type,
-                "payload": payload if payload is not None else {}
-            }
+            "Sender"      : self.name,
+            "Destination" : destination,
+            "Message"     : {
+                                "type"   : msg_type,
+                                "payload": payload if payload is not None else {}
+                            }
         }
         # Run the send in the communicator's event loop
         asyncio.run_coroutine_threadsafe(

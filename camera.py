@@ -4,7 +4,7 @@ import cv2
 import base64
 from picamera2 import Picamera2
 from threading import Thread
-from module import Module
+from module    import Module
 
 class Camera(Module):
     """
