@@ -7,11 +7,19 @@ from communicator import Communicator
 
 class Module:
     """
-    Classe base astratta per tutti i moduli funzionali.
-    Gestisce la comunicazione client, il ciclo di vita e la gestione dei messaggi
-    utilizzando un'istanza di Communicator disaccoppiata.
+    Abstract base class for all functional modules.
+    Manages client communication, lifecycle, and message handling
+    using a decoupled Communicator instance.
     """
     def __init__(self, name, addr="127.0.0.1", port=1025):
+        """
+        Initializes the Module.
+
+        Args:
+            name (str): The unique name of the module.
+            addr (str, optional): The IP address of the EventManager. Defaults to "127.0.0.1".
+            port (int, optional): The port of the EventManager. Defaults to 1025.
+        """
         self.name = name
         self.communicator = Communicator(comm_type="client", name=self.name, addr=addr, port=port)
         self.stop_event = Event()
@@ -19,10 +27,10 @@ class Module:
 
     def run(self):
         """
-        Punto di ingresso principale per il processo del modulo.
-        Avvia il communicator e il ciclo di vita del modulo.
+        Main entry point for the module's process.
+        Starts the communicator and the module's lifecycle.
         """
-        print(f"Modulo '{self.name}' in avvio.")
+        print(f"Module '{self.name}' starting.")
         self.communicator_thread = Thread(target=self.communicator.run, args=(self.stop_event,))
         self.communicator_thread.start()
 
@@ -32,20 +40,20 @@ class Module:
         self.on_stop()
         if self.communicator_thread:
             self.communicator_thread.join()
-        print(f"Modulo '{self.name}' terminato.")
+        print(f"Module '{self.name}' terminated.")
 
     def main_loop(self):
         """
-        Il ciclo principale del modulo.
-        Estrae i messaggi dalla incomingQueue e li gestisce.
+        The main loop of the module.
+        Fetches messages from the incomingQueue and handles them.
         """
         while not self.stop_event.is_set():
             try:
                 message = self.communicator.incomingQueue.get(block=True, timeout=0.1)
 
-                # Gestione speciale per il messaggio di stop
+                # Special handling for the stop message
                 if message.get("Message", {}).get("type") == "Stop":
-                    print(f"Modulo '{self.name}' ha ricevuto il segnale di stop.")
+                    print(f"Module '{self.name}' received stop signal.")
                     self.stop_event.set()
                     break
                 
@@ -53,12 +61,13 @@ class Module:
                 self.communicator.incomingQueue.task_done()
 
             except Empty:
-                continue # Nessun messaggio, continua a controllare lo stop_event
+                # No message, continue checking the stop_event
+                continue
 
     def send_message(self, destination, msg_type, payload=None):
         """
-        Invia un messaggio al server EventManager tramite la outgoingQueue.
-        Questo metodo è thread-safe.
+        Sends a message to the EventManager server via the outgoingQueue.
+        This method is thread-safe.
         """
         message = {
             "Sender": self.name,
@@ -70,25 +79,25 @@ class Module:
         }
         self.communicator.outgoingQueue.put(message)
 
-    # --- Metodi da sovrascrivere nelle classi figlie ---
+    # --- Methods to be overridden in child classes ---
 
     def on_start(self):
         """
-        Chiamato una volta all'avvio del modulo.
-        Utile per inizializzare hardware, ecc.
+        Called once when the module starts.
+        Useful for initializing hardware, etc.
         """
         pass
 
     def handle_message(self, message):
         """
-        Chiamato ogni volta che arriva un messaggio dal server.
-        La logica specifica del modulo va qui.
+        Called whenever a message arrives from the server.
+        Module-specific logic goes here.
         """
         pass
 
     def on_stop(self):
         """
-        Chiamato prima che il modulo termini.
-        Utile per pulire le risorse (es. pin GPIO, file).
+        Called before the module terminates.
+        Useful for cleaning up resources (e.g., GPIO pins, files).
         """
         pass
