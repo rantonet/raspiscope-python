@@ -28,11 +28,31 @@ class Analysis(Module):
         try:
             self.referenceSpectra = pandas.read_csv(self.referenceSpectraPath)
             self.referenceSpectra.set_index('wavelength', inplace=True)
-            print(f"Reference data loaded successfully from '{self.referenceSpectraPath}'.")
+            self.sendMessage("All",
+                             "AnalysisInitialized",
+                             {
+                                "path"   : self.referenceSpectraPath,
+                                "status" : "success"
+                             }
+                            )
         except FileNotFoundError:
-            print(f"ERROR: Reference file not found: {self.referenceSpectraPath}")
+            self.sendMessage("All",
+                             "AnalysisInitialized",
+                             {
+                                "path"    : self.referenceSpectraPath,
+                                "status"  : "error",
+                                "message" : "Reference file not found"
+                             }
+                            )
         except Exception as e:
-            print(f"ERROR while loading reference data: {e}")
+            self.sendMessage("All",
+                             "AnalysisInitialized",
+                             {
+                                "path"    : self.referenceSpectraPath,
+                                "status"  : "error",
+                                "message" : str(e)
+                             }
+                            )
 
     def handleMessage(self, message):
         """
@@ -42,9 +62,14 @@ class Analysis(Module):
         payload = message.get("Message", {}).get("payload", {})
 
         if msgType == "Analyze":
-            print("Received analysis command.")
+            self.sendMessage("All", "AnalysisRequested", {"status": "received"})
             if self.referenceSpectra is None:
-                print("Cannot analyze: reference data not loaded.")
+                self.sendMessage("All",
+                                 "AnalysisError",
+                                 {
+                                    "message": "Cannot analyze: reference data not loaded."
+                                 }
+                                )
                 return
 
             imageB64 = payload.get("image")
@@ -58,8 +83,7 @@ class Analysis(Module):
                 analysisThread = Thread(target=self.performAnalysis, args=(imageData,))
                 analysisThread.start()
             else:
-                print("'Analyze' command received without image data.")
-
+                self.sendMessage("All", "AnalysisError", {"message": "'Analyze' command received without image data."})
     def performAnalysis(self, imageData):
         """
         Performs a complete analysis of a spectroscopic absorption image
@@ -84,7 +108,6 @@ class Analysis(Module):
             self.sendAnalysisResults(results)
 
         except Exception as e:
-            print(f"ERROR during spectrogram analysis: {e}")
             self.sendMessage("All", "AnalysisError", {"error": str(e)})
 
     def extractSpectrogramProfile(self, imageData):

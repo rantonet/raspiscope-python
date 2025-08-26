@@ -1,7 +1,8 @@
+# module.py
 import json
 import time
 from threading import Thread, Event
-from queue import Empty,Full
+from queue import Empty, Full
 from communicator import Communicator
 
 class Module:
@@ -16,24 +17,26 @@ class Module:
 
         Args:
             name (str): The unique name of the module.
-            network_config (dict): Dictionary with network parameters ('address', 'port', etc.).
-            system_config (dict): Dictionary with system-wide parameters.
+            networkConfig (dict): Dictionary with network parameters ('address', 'port', etc.).
+            systemConfig (dict): Dictionary with system-wide parameters.
         """
         self.name = name
         self.communicator = Communicator(commType="client", name=self.name, config=networkConfig)
-        self.stop_event = Event()
+        self.stopEvent = Event()
         self.communicatorThread = None
         self.queueTimeout = systemConfig.get("module_message_queue_timeout_s", 0.1)
 
     def run(self):
-        #... (invariato)
+        """
+        Starts the module's main thread and message loops.
+        """
         print(f"Module '{self.name}' starting.")
-        self.communicatorThread = Thread(target=self.communicator.run, args=(self.stop_event,))
+        self.communicatorThread = Thread(target=self.communicator.run, args=(self.stopEvent,))
         self.communicatorThread.start()
 
         self.onStart()
         self.mainLoop()
-
+        
         self.onStop()
         if self.communicatorThread:
             self.communicatorThread.join()
@@ -44,21 +47,21 @@ class Module:
         The main loop of the module.
         Fetches messages from the incomingQueue and handles them.
         """
-        while not self.stop_event.is_set():
+        while not self.stopEvent.is_set():
             try:
                 message = self.communicator.incomingQueue.get(block=True, timeout=self.queueTimeout)
 
                 if message.get("Message", {}).get("type") == "Stop":
                     print(f"Module '{self.name}' received stop signal.")
-                    self.stop_event.set()
+                    self.stopEvent.set()
                     break
-
+                
                 self.handleMessage(message)
                 self.communicator.incomingQueue.task_done()
 
             except Empty:
                 continue
-
+    
     def sendMessage(self, destination, msgType, payload=None):
         """
         Sends a message to the EventManager server via the outgoingQueue.

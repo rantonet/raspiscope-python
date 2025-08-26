@@ -1,7 +1,8 @@
+# communicator.py
 import json
 import asyncio
 import websockets
-from queue import Queue, Empty,Full
+from queue import Queue, Empty, Full
 from threading import RLock, Event
 
 class Communicator:
@@ -14,7 +15,7 @@ class Communicator:
         Initializes the Communicator.
 
         Args:
-            comm_type (str): The type of communicator, either "client" or "server".
+            commType (str): The type of communicator, either "client" or "server".
             name (str): The name of the owner module, used for registration.
             config (dict): A dictionary containing network configuration.
                            Expected keys: 'address', 'port', 'client_reconnect_delay_s'.
@@ -23,37 +24,36 @@ class Communicator:
         self.type = commType
         self.config = config
         self.uri = f"ws://{self.config['address']}:{self.config['port']}"
-
+        
         self.incomingQueue = Queue()
         self.outgoingQueue = Queue()
 
         self.clients = {}
         self.lock = RLock()
-
+        
         self.loop = None
 
     def run(self, stopEvent: Event):
-        #... (il resto del metodo run rimane invariato)
+        """Starts the main asyncio event loop."""
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-
+        
         if self.type == "server":
             self.loop.run_until_complete(self.startServer(stopEvent))
         else: # client
             self.loop.run_until_complete(self.startClient(stopEvent))
-
+        
         self.loop.close()
 
     async def startServer(self, stopEvent: Event):
-        #... (il resto del metodo rimane invariato)
+        """Starts the WebSocket server and its consumer task."""
         print(f"Server listening on {self.uri}")
         host, port = self.uri.split('//')[1].split(':')
-
+        
         consumerTask = asyncio.create_task(self.serverConsumer(stopEvent))
 
         async with websockets.serve(self.serverHandler, host, int(port)):
-            done, pending = await asyncio.wait(
-                [consumerTask, self.loop.create_task(stopEvent.wait())],
+            done, pending = await asyncio.wait([consumerTask,asyncio.create_task(stopEvent.wait())],
                 return_when=asyncio.FIRST_COMPLETED
             )
             for task in pending:
@@ -67,13 +67,12 @@ class Communicator:
                 async with websockets.connect(self.uri) as websocket:
                     print(f"Module '{self.name}' connected to server.")
                     await self.register(websocket)
-
+                    
                     consumerTask = asyncio.create_task(self.clientConsumer(websocket, stopEvent))
                     producerTask = asyncio.create_task(self.producer(websocket))
-
-                    done, pending = await asyncio.wait(
-                        [consumerTask, producerTask],
-                        return_when=asyncio.FIRST_COMPLETED,
+                    
+                    done, pending = await asyncio.wait([consumerTask,asyncio.create_task(stopEvent.wait())],
+                        return_when=asyncio.FIRST_COMPLETED
                     )
                     for task in pending:
                         task.cancel()
@@ -83,14 +82,14 @@ class Communicator:
             except Exception as e:
                 print(f"Unexpected error in client communicator: {e}")
                 break
-
+    
     async def serverHandler(self, websocket, path):
         """Handles connections from individual clients to the server."""
         clientName = None
         try:
             regMessageStr = await websocket.recv()
             regMessage = json.loads(regMessageStr)
-
+            
             if regMessage.get("Message", {}).get("type") == "register":
                 clientName = regMessage.get("Sender")
                 with self.lock:
@@ -104,7 +103,7 @@ class Communicator:
                 return
 
             # This handler now only needs to produce messages from this client.
-            # The single server_consumer handles sending messages TO this client.
+            # The single serverConsumer handles sending messages TO this client.
             await self.producer(websocket)
 
         except websockets.exceptions.ConnectionClosed:
@@ -128,7 +127,7 @@ class Communicator:
 
     async def serverConsumer(self, stopEvent: Event):
         """
-        Server-specific consumer. Takes messages from the outgoingQueue
+        Server-specific consumer. Takes messages from the outgoingQueue 
         and dispatches them to the correct client websocket.
         """
         while not stopEvent.is_set():
@@ -136,16 +135,16 @@ class Communicator:
                 messageToSend = await self.loop.run_in_executor(
                     None, self.outgoingQueue.get, True, 0.1
                 )
-
+                
                 destination, messageDict = messageToSend
-
+                
                 if destination == "All":
                     await self.broadcast(messageDict)
                 else:
                     targetWs = None
                     with self.lock:
                         targetWs = self.clients.get(destination)
-
+                    
                     if targetWs:
                         try:
                             await targetWs.send(json.dumps(messageDict))
@@ -193,7 +192,7 @@ class Communicator:
         with self.lock:
             # Create a copy of the list to avoid issues if clients disconnect during iteration
             clientsToSend = [ws for name, ws in self.clients.items() if name!= sender]
-
+        
         if clientsToSend:
-            tasks = [ws.send(messageStr) for ws in clientsToSend]
+            tasks = []
             await asyncio.gather(*tasks, return_exceptions=True)
