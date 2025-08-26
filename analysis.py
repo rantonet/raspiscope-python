@@ -13,53 +13,54 @@ class Analysis(Module):
     Class for spectrogram analysis.
     Inherits from the base Module class.
     """
-    def __init__(self, config, network_config, system_config):
-        super().__init__("Analysis", network_config, system_config)
+    def __init__(self, config, networkConfig, systemConfig):
+        super().__init__("Analysis", networkConfig, systemConfig)
         self.config = config
-        self.reference_spectra_path = self.config['reference_spectra_path']
-        self.tolerance_nm = self.config['tolerance_nm']
-        self.reference_spectra = None
+        self.referenceSpectraPath = self.config['reference_spectra_path']
+        self.toleranceNm = self.config['tolerance_nm']
+        self.referenceSpectra = None
 
-    def on_start(self):
+    def onStart(self):
         """
         Method called when the module starts.
         Loads the reference data.
         """
         try:
-            self.reference_spectra = pandas.read_csv(self.reference_spectra_path)
-            self.reference_spectra.set_index('wavelength', inplace=True)
-            print(f"Reference data loaded successfully from '{self.reference_spectra_path}'.")
+            self.referenceSpectra = pandas.read_csv(self.referenceSpectraPath)
+            self.referenceSpectra.set_index('wavelength', inplace=True)
+            print(f"Reference data loaded successfully from '{self.referenceSpectraPath}'.")
         except FileNotFoundError:
-            print(f"ERROR: Reference file not found: {self.reference_spectra_path}")
+            print(f"ERROR: Reference file not found: {self.referenceSpectraPath}")
         except Exception as e:
             print(f"ERROR while loading reference data: {e}")
-    def handle_message(self, message):
+
+    def handleMessage(self, message):
         """
         Handles incoming messages.
         """
-        msg_type = message.get("Message", {}).get("type")
+        msgType = message.get("Message", {}).get("type")
         payload = message.get("Message", {}).get("payload", {})
 
-        if msg_type == "Analyze":
+        if msgType == "Analyze":
             print("Received analysis command.")
-            if self.reference_spectra is None:
+            if self.referenceSpectra is None:
                 print("Cannot analyze: reference data not loaded.")
                 return
-            
-            image_b64 = payload.get("image")
-            if image_b64:
+
+            imageB64 = payload.get("image")
+            if imageB64:
                 # Decode the image from Base64
-                img_bytes = base64.b64decode(image_b64)
-                img_np = numpy.frombuffer(img_bytes, dtype=numpy.uint8)
-                image_data = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
-                
+                imgBytes = base64.b64decode(imageB64)
+                imgNp = numpy.frombuffer(imgBytes, dtype=numpy.uint8)
+                imageData = cv2.imdecode(imgNp, cv2.IMREAD_COLOR)
+
                 # Start analysis in a separate thread to avoid blocking
-                analysis_thread = Thread(target=self.perform_analysis, args=(image_data,))
-                analysis_thread.start()
+                analysisThread = Thread(target=self.performAnalysis, args=(imageData,))
+                analysisThread.start()
             else:
                 print("'Analyze' command received without image data.")
 
-    def perform_analysis(self, image_data):
+    def performAnalysis(self, imageData):
         """
         Performs the spectrogram analysis.
         This is a placeholder function and should be implemented.
@@ -70,11 +71,11 @@ class Analysis(Module):
 
         # Example of sending results (dummy data)
         time.sleep(2) # Simulate processing time
-        
+
         results = {
             "substances": ["Substance A", "Substance B"],
             "spectrogram_data": [1, 2, 3, 4, 5]
         }
-        
-        self.send_message("All", "AnalysisComplete", results)
+
+        self.sendMessage("All", "AnalysisComplete", results)
         print("Analysis complete and results sent.")

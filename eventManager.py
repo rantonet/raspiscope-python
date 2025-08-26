@@ -25,70 +25,71 @@ class EventManager:
     Orchestrates modules by running them as separate processes
     and routing messages between them based on a central configuration file.
     """
-    def __init__(self, config_path="config.json"):
+    def __init__(self, configPath="config.json"):
         """
         Initializes the EventManager.
         """
-        self.config = load_config(config_path)
+        self.config = loadConfig(configPath)
         self.name = "EventManager"
-        
-        network_config = self.config['network']
-        self.communicator = Communicator("server", name=self.name, config=network_config)
-        
-        self.modules = self._instantiate_modules()
-        self.running_processes = []
-        self._stop_event = Event()
 
-    def _instantiate_modules(self):
+        networkConfig = self.config['network']
+        self.communicator = Communicator("server", name=self.name, config=networkConfig)
+
+        self.modules = self._instantiateModules()
+        self.runningProcesses = []
+        self._stopEvent = Event()
+
+    def _instantiateModules(self):
         """
         Instantiates modules based on the configuration file.
         """
-        instantiated_modules = []
-        module_configs = self.config.get("modules", {})
-        network_config = self.config.get("network", {})
-        system_config = self.config.get("system", {})
+        instantiatedModules = []
+        moduleConfigs = self.config.get("modules", {})
+        networkConfig = self.config.get("network", {})
+        systemConfig = self.config.get("system", {})
 
-        for name, mod_config in module_configs.items():
-            if mod_config.get("enabled", False):
+        for name, modConfig in moduleConfigs.items():
+            if modConfig.get("enabled", False):
                 if name in MODULE_MAP:
                     ModuleClass = MODULE_MAP[name]
                     print(f"Instantiating module: {name}")
                     # Iniezione delle dipendenze
-                    module_instance = ModuleClass(
-                        config=mod_config, 
-                        network_config=network_config, 
-                        system_config=system_config
+                    moduleInstance = ModuleClass(
+                        config=modConfig,
+                        networkConfig=networkConfig,
+                        systemConfig=systemConfig
                     )
-                    instantiated_modules.append(module_instance)
+                    instantiatedModules.append(moduleInstance)
                 else:
                     print(f"WARNING: Module '{name}' is enabled in config but has no matching class in MODULE_MAP.")
-        return instantiated_modules
+        return instantiatedModules
 
     def run(self):
         """Starts the communication server and all module processes."""
-        signal.signal(signal.SIGINT, self._handle_shutdown)
-        signal.signal(signal.SIGTERM, self._handle_shutdown)
+        signal.signal(signal.SIGINT, self._handleShutdown)
+        signal.signal(signal.SIGTERM, self._handleShutdown)
 
-        comm_thread = Thread(target=self.communicator.run, args=(self._stop_event,))
-        comm_thread.start()
+        commThread = Thread(target=self.communicator.run, args=(self._stopEvent,))
+        commThread.start()
 
         for module in self.modules:
             process = Process(target=module.run)
             process.daemon = True
-            self.running_processes.append({'process': process, 'name': module.name})
+            self.runningProcesses.append({'process': process, 'name': module.name})
 
-        for p_info in self.running_processes:
-            print(f'Starting {p_info["name"]}')
-            p_info['process'].start()
+        for pInfo in self.runningProcesses:
+            print(f'Starting {pInfo["name"]}')
+            pInfo['process'].start()
 
         print("EventManager running. Press Ctrl+C to exit.")
         try:
-            while not self._stop_event.is_set():
+            while not self._stopEvent.is_set():
                 self.route()
         finally:
             self._cleanup()
-            comm_thread.join()
+            commThread.join()
             print("EventManager terminated.")
+
     def route(self):
         """Pops messages from the queue and routes them."""
         try:
@@ -114,24 +115,24 @@ class EventManager:
         except (AttributeError, TypeError) as e:
             print(f"Error while routing message: {e} - Message: {message}")
 
-    def _handle_shutdown(self, signum, frame):
+    def _handleShutdown(self, signum, frame):
         """Handles interruption signals (e.g., Ctrl+C)."""
         print(f"\nShutdown signal received ({signum}). Initiating termination...")
-        self._stop_event.set()
+        self._stopEvent.set()
 
     def _cleanup(self):
         """Cleans up resources and terminates module processes."""
         print("Sending stop signal to all modules...")
-        stop_message = {
+        stopMessage = {
             "Sender": self.name,
             "Destination": "All",
             "Message": {"type": "Stop"}
         }
-        self.communicator.outgoingQueue.put(("All", stop_message))
-        
+        self.communicator.outgoingQueue.put(("All", stopMessage))
+
         print("Terminating module processes...")
-        for p_info in self.running_processes:
-            if p_info['process'].is_alive():
-                p_info['process'].terminate()
-                p_info['process'].join(timeout=1)
-                print(f"Process {p_info['name']} terminated.")
+        for pInfo in self.runningProcesses:
+            if pInfo['process'].is_alive():
+                pInfo['process'].terminate()
+                pInfo['process'].join(timeout=1)
+                print(f"Process {pInfo['name']} terminated.")
