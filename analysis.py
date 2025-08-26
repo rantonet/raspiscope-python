@@ -62,20 +62,139 @@ class Analysis(Module):
 
     def performAnalysis(self, imageData):
         """
-        Performs the spectrogram analysis.
-        This is a placeholder function and should be implemented.
+        Performs a complete analysis of a spectroscopic absorption image
+        by orchestrating the four phases of the analysis pipeline.
+        
+        Args:
+            imageData (numpy.ndarray): The pixel matrix of the color image.
         """
-        print("Starting spectrogram analysis...")
-        # TODO: Implement the logic for strip extraction,
-        # spectrogram calculation, and comparison.
+        print("Starting absorption spectrogram analysis...")
+        
+        try:
+            # Phase 1: Data Extraction and Pre-processing
+            intensityProfile = self.extractSpectrogramProfile(imageData)
+            
+            # Phase 2: Valley Detection (Points of maximum absorbance)
+            peaksIndices = self.detectAbsorbanceValleys(intensityProfile)
+            
+            # Phase 3: Comparison with reference spectra
+            results = self.compareWithReferences(peaksIndices, intensityProfile)
 
-        # Example of sending results (dummy data)
-        time.sleep(2) # Simulate processing time
+            # Phase 4: Sending results
+            self.sendAnalysisResults(results)
+
+        except Exception as e:
+            print(f"ERROR during spectrogram analysis: {e}")
+            self.sendMessage("All", "AnalysisError", {"error": str(e)})
+
+    def extractSpectrogramProfile(self, imageData):
+        """
+        Extracts and pre-processes the 1D intensity profile from a 2D image.
+        
+        Args:
+            imageData (numpy.ndarray): The pixel matrix of the color image.
+            
+        Returns:
+            numpy.ndarray: The 1D intensity profile.
+        """
+        # Defining a Region of Interest (ROI) centered on the image
+        height, width, _ = imageData.shape
+        roiHeight = 20 # Example: a central band of 20 pixels
+        yStart = int(height / 2) - int(roiHeight / 2)
+        yEnd = yStart + roiHeight
+        roi = imageData
+
+        # Converting the ROI to grayscale for intensity analysis
+        roiGray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        
+        # Calculating the 1D intensity profile by averaging along the rows
+        intensityProfile = numpy.mean(roiGray, axis=0)
+        
+        return intensityProfile
+        
+    def detectAbsorbanceValleys(self, intensityProfile):
+        """
+        Detects valleys in the intensity profile by inverting the signal
+        and finding peaks.
+        
+        Args:
+            intensityProfile (numpy.ndarray): The 1D intensity profile.
+            
+        Returns:
+            numpy.ndarray: The indices of the detected peaks (original valleys).
+        """
+        # To detect valleys with find_peaks, we invert the signal.
+        # Maximum absorption corresponds to the minimum intensity.
+        invertedProfile = numpy.max(intensityProfile) - intensityProfile
+
+        # Finds peaks in the inverted profile, which correspond to the original valleys.
+        # The parameters are crucial for filtering noise.
+        peaksIndices, _ = find_peaks(
+            invertedProfile, 
+            height=numpy.mean(invertedProfile) + numpy.std(invertedProfile) / 2, # Dynamic threshold
+            distance=5 # Minimum distance between peaks (in pixels)
+        )
+        
+        return peaksIndices
+
+    def compareWithReferences(self, peaksIndices, intensityProfile):
+        """
+        Compares detected peaks with the reference spectra and compiles the results.
+        
+        Args:
+            peaksIndices (numpy.ndarray): The indices of the detected peaks.
+            intensityProfile (numpy.ndarray): The 1D intensity profile.
+            
+        Returns:
+            dict: A dictionary containing the analysis results.
+        """
+        if self.referenceSpectra is None:
+            raise RuntimeError("Reference data not loaded. Cannot perform comparison.")
 
         results = {
-            "substances": ["Substance A", "Substance B"],
-            "spectrogram_data": [1, 2, 3, 4, 5]
+            "detected_peaks"   : [],
+            "spectrogram_data" : intensityProfile.tolist()
         }
+        
+        identifiedSubstances = set()
 
+        for peakIdx in peaksIndices:
+            # Example: pixel to wavelength conversion (assuming linear calibration)
+            pixelToNmFactor = 0.5 # nm per pixel, to be calibrated
+            estimatedWavelengthNm = peakIdx * pixelToNmFactor + 400 # Example offset
+            
+            # Comparison with reference data using numpy.isclose for tolerance
+            for _, row in self.referenceSpectra.iterrows():
+                refWavelength = row['wavelength']
+                
+                if numpy.isclose(estimatedWavelengthNm, refWavelength, atol=self.toleranceNm):
+                    substance = row['substance']
+                    if substance not in identifiedSubstances:
+                        print(f"Substance '{substance}' identified! Wavelength: {estimatedWavelengthNm:.2f} nm.")
+                        identifiedSubstances.add(substance)
+
+                    results["detected_peaks"].append({
+                        "pixel_index": int(peakIdx),
+                        "wavelength_nm": float(estimatedWavelengthNm),
+                        "intensity": float(intensityProfile[peakIdx]),
+                        "match": {
+                            "substance": substance,
+                            "reference_nm": float(refWavelength),
+                            "delta_nm": abs(estimatedWavelengthNm - refWavelength)
+                        }
+                    })
+                    break # A peak corresponds to only one reference substance
+
+        results["identified_substances"] = list(identifiedSubstances)
+        
+        return results
+
+    def sendAnalysisResults(self, results):
+        """
+        Sends the final analysis results message.
+        
+        Args:
+            results (dict): The dictionary of analysis results.
+        """
         self.sendMessage("All", "AnalysisComplete", results)
         print("Analysis complete and results sent.")
