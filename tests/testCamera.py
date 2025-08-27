@@ -1,8 +1,10 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 import numpy as np
 import base64
 from camera import Camera
+import cv2
+from picamera2 import Picamera2
 
 class TestCamera(unittest.TestCase):
     def setUp(self):
@@ -10,7 +12,7 @@ class TestCamera(unittest.TestCase):
         self.mock_network_config = {}
         self.mock_system_config = {}
         
-        self.mock_picamera2 = MagicMock()
+        self.mock_picamera2 = MagicMock(spec=Picamera2)
         self.mock_picamera2.create_still_configuration.return_value = {}
         
         self.mock_module_patcher = patch('camera.Module', MagicMock(spec=True))
@@ -28,27 +30,31 @@ class TestCamera(unittest.TestCase):
         self.mock_picamera2.create_still_configuration.assert_called_once_with({"size": (1920, 1080)})
         self.mock_picamera2.configure.assert_called_once()
         self.mock_picamera2.start.assert_called_once()
+        self.mock_module.log.assert_called_once_with("INFO", "Camera started and configured with resolution (1920, 1080).")
 
-    def test_handleMessage_take(self):
-        """Verifica che il messaggio 'Take' attivi la cattura dell'immagine."""
+    def test_onStart_error(self):
+        """Verifica la gestione di un errore di inizializzazione della fotocamera."""
+        with patch('camera.Picamera2', side_effect=Exception("Test Error")):
+            self.camera_module.onStart()
+            self.assertIsNone(self.camera_module.camera)
+            self.mock_module.log.assert_called_once_with("ERROR", "Could not initialize camera: Test Error")
+
+    def test_handleMessage_take_and_cuvette_present(self):
+        """Verifica che il messaggio 'Take' o 'CuvettePresent' attivi la cattura dell'immagine."""
+        self.camera_module.camera = self.mock_picamera2
         with patch.object(self.camera_module, 'takePicture') as mock_take_picture:
             self.camera_module.handleMessage({"Message": {"type": "Take"}})
             mock_take_picture.assert_called_once()
-    
-    def test_handleMessage_cuvette_present(self):
-        """Verifica che il messaggio 'CuvettePresent' attivi la cattura dell'immagine."""
-        with patch.object(self.camera_module, 'takePicture') as mock_take_picture:
+            mock_take_picture.reset_mock()
             self.camera_module.handleMessage({"Message": {"type": "CuvettePresent"}})
             mock_take_picture.assert_called_once()
     
     def test_takePicture(self):
         """Verifica la cattura e l'invio dell'immagine."""
-        # Simula un'immagine
         mock_image_array = np.zeros((100, 100, 3), dtype=np.uint8)
         self.camera_module.camera = self.mock_picamera2
         self.mock_picamera2.capture_array.return_value = mock_image_array
         
-        # Simula la codifica dell'immagine
         mock_encoded_image = b"mock_encoded_image"
         with patch('cv2.imencode', return_value=(True, mock_encoded_image)), \
              patch('base64.b64encode', return_value=b"mock_base64_string"), \
@@ -57,6 +63,10 @@ class TestCamera(unittest.TestCase):
             self.camera_module.takePicture()
             
             mock_send_message.assert_called_once_with("Analysis", "Analyze", {"image": "mock_base64_string"})
+            self.mock_module.log.assert_has_calls([
+                call("INFO", "Taking picture..."),
+                call("INFO", "Picture taken and sent for analysis.")
+            ])
 
     def test_onStop(self):
         """Verifica che la fotocamera venga fermata al momento dello stop del modulo."""
@@ -64,3 +74,4 @@ class TestCamera(unittest.TestCase):
         self.mock_picamera2.started = True
         self.camera_module.onStop()
         self.mock_picamera2.stop.assert_called_once()
+        self.mock_module.log.assert_called_once_with("INFO", "Camera stopped.")

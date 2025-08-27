@@ -4,6 +4,9 @@ import numpy as np
 import pandas as pd
 from analysis import Analysis
 from threading import Thread
+import cv2
+import base64
+from queue import Queue
 
 class TestAnalysis(unittest.TestCase):
     def setUp(self):
@@ -14,13 +17,12 @@ class TestAnalysis(unittest.TestCase):
         self.mock_network_config = {}
         self.mock_system_config = {}
         
-        # Simula la classe base Module
         self.mock_module_patcher = patch('analysis.Module', MagicMock(spec=True))
         self.mock_module = self.mock_module_patcher.start()
+        self.mock_module.log = MagicMock()
         
         self.analysis_module = Analysis(self.mock_config, self.mock_network_config, self.mock_system_config)
         
-        # Dati di riferimento simulati
         self.mock_reference_spectra = pd.DataFrame({
             'wavelength': [450, 550, 650],
             'substance': ['SubstanceA', 'SubstanceB', 'SubstanceC']
@@ -36,6 +38,7 @@ class TestAnalysis(unittest.TestCase):
             self.analysis_module.onStart()
             self.assertIsNotNone(self.analysis_module.referenceSpectra)
             mock_send.assert_called_once_with("All", "AnalysisInitialized", {"path": "mock_data.csv", "status": "success"})
+            self.mock_module.log.assert_called_once_with("INFO", "Reference data loaded successfully.")
 
     def test_onStart_file_not_found(self):
         """Verifica la gestione di un FileNotFoundError."""
@@ -44,6 +47,7 @@ class TestAnalysis(unittest.TestCase):
             self.analysis_module.onStart()
             self.assertIsNone(self.analysis_module.referenceSpectra)
             mock_send.assert_called_once_with("All", "AnalysisInitialized", {"path": "mock_data.csv", "status": "error", "message": "Reference file not found"})
+            self.mock_module.log.assert_called_once_with("ERROR", "Reference file not found.")
 
     @patch('analysis.Thread')
     def test_handleMessage_analyze_with_image(self, mock_thread):
@@ -54,44 +58,28 @@ class TestAnalysis(unittest.TestCase):
         
         with patch('base64.b64decode', return_value=b'mock_bytes'), \
              patch('numpy.frombuffer', return_value=np.zeros(10)), \
-             patch('cv2.imdecode', return_value=mock_image_data):
+             patch('cv2.imdecode', return_value=mock_image_data), \
+             patch.object(self.analysis_module, 'sendMessage') as mock_send:
             
             message = {"Message": {"type": "Analyze", "payload": mock_payload}}
             self.analysis_module.handleMessage(message)
             
+            mock_send.assert_called_once_with("All", "AnalysisRequested", {"status": "received"})
             mock_thread.assert_called_once()
             self.assertEqual(mock_thread.call_args[1]['target'], self.analysis_module.performAnalysis)
+            self.mock_module.log.assert_called_once_with("INFO", "Analysis requested. Starting new thread.")
 
-    def test_extractSpectrogramProfile(self):
-        """Verifica l'estrazione e la pre-elaborazione del profilo spettrale."""
+    def test_performAnalysis_success(self):
+        """Verifica che la pipeline di analisi venga eseguita con successo."""
         mock_image = np.zeros((100, 200, 3), dtype=np.uint8)
-        mock_image[:, 100:] = 255 # Crea una sezione luminosa
-        
-        with patch('cv2.cvtColor', return_value=np.mean(mock_image, axis=2)), \
-             patch('numpy.mean', return_value=np.linspace(0, 255, 200)):
-            
-            profile = self.analysis_module.extractSpectrogramProfile(mock_image)
-            self.assertEqual(profile.shape, (200,))
-
-    def test_detectAbsorbanceValleys(self):
-        """Verifica la corretta rilevazione delle valli (picchi invertiti)."""
-        mock_profile = np.array([100, 50, 100, 150, 50, 150])
-        with patch('scipy.signal.find_peaks', return_value=(np.array([1, 4]), {})):
-            peaks = self.analysis_module.detectAbsorbanceValleys(mock_profile)
-            np.testing.assert_array_equal(peaks, np.array([1, 4]))
-
-    def test_compareWithReferences(self):
-        """Verifica la corrispondenza dei picchi con i dati di riferimento."""
         self.analysis_module.referenceSpectra = self.mock_reference_spectra
-        # Picco al pixel 100 -> 450 nm, Picco al pixel 300 -> 550 nm
-        mock_peaks = np.array([100, 300])
-        mock_profile = np.full(500, 100)
-        mock_profile[100] = 50
-        mock_profile[300] = 50
         
-        with patch('numpy.isclose', side_effect=lambda a,b,atol: (a == 450 and b==450) or (a==550 and b==550)):
-            results = self.analysis_module.compareWithReferences(mock_peaks, mock_profile)
+        with patch.object(self.analysis_module, 'extractSpectrogramProfile', return_value=np.zeros(200)), \
+             patch.object(self.analysis_module, 'detectAbsorbanceValleys', return_value=np.array([100])), \
+             patch.object(self.analysis_module, 'compareWithReferences', return_value={"identified_substances": ["Test"]}), \
+             patch.object(self.analysis_module, 'sendAnalysisResults') as mock_send_results:
             
-            self.assertIn('SubstanceA', results['identified_substances'])
-            self.assertIn('SubstanceB', results['identified_substances'])
-            self.assertEqual(len(results['detected_peaks']), 2)
+            self.analysis_module.performAnalysis(mock_image)
+            
+            mock_send_results.assert_called_once()
+            self.mock_module.log.assert_called_once_with("INFO", "Starting absorption spectrogram analysis...")

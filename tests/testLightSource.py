@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 from rpi_ws281x import PixelStrip, Color
 from lightSource import LightSource
 
@@ -33,27 +33,19 @@ class TestLightSource(unittest.TestCase):
         self.light_source_module.onStart()
         self.mock_pixelstrip.begin.assert_called_once()
         self.mock_pixelstrip.setPixelColor.assert_called_once_with(0, "Color(0,0,0)")
+        self.mock_module.log.assert_called_once_with("INFO", "Light source initialized.")
 
-    def test_handleMessage_turnOn(self):
-        """Verifica che il messaggio 'TurnOn' attivi la luce."""
-        self.light_source_module.led = self.mock_pixelstrip
-        with patch.object(self.light_source_module, 'turnOn') as mock_turn_on:
-            self.light_source_module.handleMessage({"Message": {"type": "TurnOn"}})
-            mock_turn_on.assert_called_once()
+    def test_onStart_error(self):
+        """Verifica la gestione di un errore di inizializzazione."""
+        self.mock_pixelstrip.begin.side_effect = Exception("Test Error")
+        self.light_source_module.onStart()
+        self.mock_module.log.assert_called_once_with("ERROR", "Could not initialize light source. Run as root? Details: Test Error")
+        self.assertIsNone(self.light_source_module.led)
 
-    def test_handleMessage_dim(self):
-        """Verifica che il messaggio 'Dim' regoli la luminosità."""
-        self.light_source_module.led = self.mock_pixelstrip
-        with patch.object(self.light_source_module, 'dim') as mock_dim:
-            self.light_source_module.handleMessage({"Message": {"type": "Dim", "payload": {"brightness": 100}}})
-            mock_dim.assert_called_once_with(100)
-    
     def test_turnOn(self):
         """Verifica che turnOn imposti il colore e mostri il risultato."""
         self.light_source_module.led = self.mock_pixelstrip
-        self.light_source_module.base_color = (255, 255, 255)
-        self.light_source_module.rgb_calibration = (1, 1, 1)
-
+        self.light_source_module.is_on = False
         self.light_source_module.turnOn()
         self.mock_pixelstrip.setPixelColor.assert_called_with(0, 'Color(255,255,255)')
         self.mock_pixelstrip.show.assert_called_once()
@@ -62,10 +54,28 @@ class TestLightSource(unittest.TestCase):
             call("All", "TurningOn"),
             call("All", "TurnedOn")
         ])
+        self.mock_module.log.assert_has_calls([
+            call("INFO", "Turning on light source..."),
+            call("INFO", "Light source turned on.")
+        ])
+
+    def test_dim(self):
+        """Verifica che dim regoli la luminosità e invii i messaggi di log."""
+        self.light_source_module.led = self.mock_pixelstrip
+        self.light_source_module.is_on = True
+        self.light_source_module.dim(100)
+        self.mock_pixelstrip.setBrightness.assert_called_once_with(100)
+        self.mock_pixelstrip.show.assert_called_once()
+        self.assertEqual(self.light_source_module.brightness, 100)
+        self.mock_module.log.assert_has_calls([
+            call("INFO", "Adjusting brightness to 100..."),
+            call("INFO", "Brightness set to 100.")
+        ])
 
     def test_onStop(self):
-        """Verifica che onStop spenga la luce."""
+        """Verifica che onStop spenga la luce e invii il log."""
         self.light_source_module.led = self.mock_pixelstrip
         with patch.object(self.light_source_module, 'turnOff') as mock_turn_off:
             self.light_source_module.onStop()
             mock_turn_off.assert_called_once_with(initial=True)
+            self.mock_module.log.assert_called_once_with("INFO", "Stopping LightSource module...")

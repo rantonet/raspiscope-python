@@ -6,7 +6,6 @@ from configLoader import loadConfig
 
 class TestConfigLoader(unittest.TestCase):
     def setUp(self):
-        # Reset the cached config for each test
         loadConfig._config = None
 
     def test_loadConfig_success(self):
@@ -27,7 +26,8 @@ class TestConfigLoader(unittest.TestCase):
     def test_loadConfig_file_not_found(self):
         """Verifica la gestione di un FileNotFoundError."""
         with patch('builtins.open', side_effect=FileNotFoundError), \
-             patch('sys.exit') as mock_exit:
+             patch('sys.exit') as mock_exit, \
+             patch('builtins.print'): # Suppress print
             loadConfig("non_existent_file.json")
             mock_exit.assert_called_once_with(1)
             
@@ -36,7 +36,8 @@ class TestConfigLoader(unittest.TestCase):
         invalid_json_data = "{'network': 'invalid'"
         with patch('builtins.open', mock_open(read_data=invalid_json_data)), \
              patch('json.JSONDecodeError', create=True) as mock_json_error, \
-             patch('sys.exit') as mock_exit:
+             patch('sys.exit') as mock_exit, \
+             patch('builtins.print'): # Suppress print
             mock_json_error.msg = "Mock error"
             mock_json_error.doc = ""
             mock_json_error.pos = 0
@@ -50,12 +51,12 @@ class TestConfigLoader(unittest.TestCase):
         incomplete_config_data = {
             "network": {},
             "system": {}
-            # "modules" is missing
         }
         json_data = json.dumps(incomplete_config_data)
         
         with patch('builtins.open', mock_open(read_data=json_data)), \
              patch('json.load', return_value=incomplete_config_data), \
-             patch('sys.exit') as mock_exit:
+             patch('sys.exit') as mock_exit, \
+             patch('builtins.print'): # Suppress print
             loadConfig("incomplete_config.json")
             mock_exit.assert_called_once_with(1)

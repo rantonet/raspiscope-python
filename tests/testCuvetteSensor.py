@@ -1,8 +1,9 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 import time
 from cuvetteSensor import CuvetteSensor
 import statistics
+from gpiozero import GPIOZeroError
 
 class TestCuvetteSensor(unittest.TestCase):
     def setUp(self):
@@ -33,10 +34,35 @@ class TestCuvetteSensor(unittest.TestCase):
         self.mock_module_patcher.stop()
         self.mock_gpiozero_patcher.stop()
 
+    def test_onStart_success(self):
+        """Verifica la corretta inizializzazione del sensore e la calibrazione."""
+        with patch.object(self.sensor_module, 'calibrate') as mock_calibrate:
+            self.sensor_module.onStart()
+            self.mock_module.log.assert_called_once_with("INFO", "Cuvette sensor initialized.")
+            mock_calibrate.assert_called_once()
+            
+    def test_onStart_error(self):
+        """Verifica la gestione di un errore di inizializzazione del sensore."""
+        with patch('cuvetteSensor.InputDevice', side_effect=GPIOZeroError("Test error")):
+            self.sensor_module.onStart()
+            self.mock_module.log.assert_called_once_with("ERROR", "Could not initialize sensor on pin 17. Details: Test error")
+            self.assertIsNone(self.sensor_module.sensor)
+
     def test_calibrate_success(self):
         """Verifica la corretta calibrazione del sensore."""
+        self.sensor_module.sensor = self.mock_input_device
         self.sensor_module.calibrate()
         self.assertEqual(self.sensor_module.presenceThreshold, 0.4) # 0.5 - 0.1
+        self.mock_module.sendMessage.assert_has_calls([
+            call("All", "CalibrationStarted", {"message": "Starting cuvette sensor calibration (3 samples)..."}),
+            call("All", "CalibrationComplete", {"threshold": 0.4, "message": "Calibration complete."})
+        ])
+
+    def test_calibrate_error_no_sensor(self):
+        """Verifica il log di un errore se il sensore non è inizializzato."""
+        self.sensor_module.sensor = None
+        self.sensor_module.calibrate()
+        self.mock_module.sendMessage.assert_called_once_with("All", "CalibrationError", {"message": "Cannot calibrate: sensor not initialized."})
 
     def test_checkPresence_state_change(self):
         """Verifica che il modulo invii messaggi quando lo stato del sensore cambia."""
@@ -44,26 +70,33 @@ class TestCuvetteSensor(unittest.TestCase):
         
         # Scenario 1: Nessuna cuvetta -> Cuvetta inserita
         self.sensor_module.isPresent = False
+        self.sensor_module.sensor = self.mock_input_device
         self.mock_input_device.value = 0.4 # Sotto la soglia
         self.sensor_module.checkPresence()
         self.assertTrue(self.sensor_module.isPresent)
-        self.mock_module.sendMessage.assert_called_once_with("All", "CuvettePresent")
+        self.mock_module.sendMessage.assert_has_calls([
+            call("All", "CuvettePresent"),
+            call("Logger", "LogMessage", {"level": "INFO", "message": "Cuvette inserted."})
+        ])
 
         # Scenario 2: Cuvetta inserita -> Cuvetta rimossa
         self.mock_module.sendMessage.reset_mock()
         self.mock_input_device.value = 0.6 # Sopra la soglia
         self.sensor_module.checkPresence()
         self.assertFalse(self.sensor_module.isPresent)
-        self.mock_module.sendMessage.assert_called_once_with("All", "CuvetteAbsent")
+        self.mock_module.sendMessage.assert_has_calls([
+            call("All", "CuvetteAbsent"),
+            call("Logger", "LogMessage", {"level": "INFO", "message": "Cuvette removed."})
+        ])
 
     def test_mainLoop_polling(self):
         """Verifica che il mainLoop chiami checkPresence a intervalli regolari."""
+        self.sensor_module.sensor = self.mock_input_device
         with patch.object(self.sensor_module, 'checkPresence') as mock_check, \
+             patch.object(self.sensor_module, 'stop_event') as mock_stop_event, \
              patch('time.sleep') as mock_sleep:
             
-            # Ferma il loop dopo 2 iterazioni
-            mock_check.side_effect = [None, self.sensor_module.stop_event.set]
-            
+            mock_stop_event.is_set.side_effect = [False, False, True]
             self.sensor_module.mainLoop()
             
             self.assertEqual(mock_check.call_count, 2)
