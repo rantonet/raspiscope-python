@@ -25,3 +25,4 @@ six==1.17.0
 tqdm==4.67.1
 tzdata==2025.2
 v4l2-python3==0.3.5
+rpi-libcamera==0.1a10
