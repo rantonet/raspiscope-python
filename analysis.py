@@ -1,261 +1,223 @@
 import cv2
 import numpy
 import pandas
-from time         import sleep
+import time
+import base64
+import json
 from scipy.signal import find_peaks
-from threading    import Thread
-from communicator import Communicator
+from threading import Thread
+from module import Module
 
-class Analysis():
-    """Analysis
-
-    Class for spectrogram analysis
+class Analysis(Module):
     """
-    def __init__(self,reference_spectra_path="",tolerance_nm=10):
-        """Analysis constructor
+    Class for spectrogram analysis.
+    Inherits from the base Module class.
+    """
+    def __init__(self,config,networkConfig,systemConfig):
+        super().__init__("Analysis",networkConfig,systemConfig)
+        self.config               = config
+        self.referenceSpectraPath = self.config['reference_spectra_path']
+        self.toleranceNm          = self.config['tolerance_nm']
+        self.referenceSpectra     = None
 
-        Initializes the processor with the image data to be analyzed.
-
-        Args:
-            image_data (numpy.ndarray): The image's pixel array (e.g., from OpenCV).
-                                        Can be color (BGR) or grayscale.
-            reference_spectra_path (str): Path to the CSV file containing the reference spectra.
-                                          The CSV should have 'wavelength' as the first column
-                                          and subsequent columns for each substance.
+    def onStart(self):
         """
-        self.name         = "Analysis"
-        self.stop         = False
-        self.image        = image_data
-        self.communicator = Communicator("client")
+        Method called when the module starts.
+        Loads the reference data.
+        """
         try:
-            self.reference_spectra = pandas.read_csv(reference_spectra_path)
-            self.reference_spectra.set_index('wavelength', inplace=True)
+            self.referenceSpectra = pandas.read_csv(self.referenceSpectraPath)
+            self.referenceSpectra.set_index('wavelength',inplace=True)
+            self.sendMessage("All",
+                             "AnalysisInitialized",
+                             {
+                                "path"   : self.referenceSpectraPath,
+                                "status" : "success"
+                             }
+                            )
         except FileNotFoundError:
-            raise FileNotFoundError(f"Reference file not found at: {reference_spectra_path}")
-        self.tolerance_nm = tolerance_nm
-    def run(self):
-        t = Thread(target=self.communicator.run)
-        t.start()
-        while True:
-            if self.communicator.incomingQueue:
-                message = self.communicator.incomingQueue.pop(0)
-            if message:
-                if message["Message"] == "Stop":
-                    break
-                elif message["Message"] == "Analyze":
-                    #TODO: implement get image_tata code
-                    if image_data is None or image_data.size == 0:
-                        raise ValueError("Provided image data cannot be None.")
-                    if not reference_spectra_path.strip():
-                        raise ValueError("Provided reference spectra path is empty")
-                    if len(self.image.shape) == 3 and self.image.shape[2] == 3:
-                        self.gray_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
-                    else:
-                        self.gray_image = self.image
-                    #TODO: end the function
-                elif message["Message"] == "Calibrate":
-                    self.calibrate(known_spectrum,known_peaks_pixels,known_peaks_wavelengths)
-            sleep(0.001)
-        self.communicator.outgoingQueue.append(
-                                            {
-                                                "Sender"      : self.name,
-                                                "Destination" : "Communicator",
-                                                "Message"     : "stop"
-                                            }
-                                            )
-        t.join()
-    def calibrate(self, spectrum_profile, known_peaks_pixels, known_peaks_wavelengths):
-        """calibrate
-        Calibrates the pixel axis into wavelengths (nm).
-        Uses simple linear interpolation based on known peaks.
+            self.sendMessage("All",
+                             "AnalysisInitialized",
+                             {
+                                "path"    : self.referenceSpectraPath,
+                                "status"  : "error",
+                                "message" : "Reference file not found"
+                             }
+                            )
+        except Exception as e:
+            self.sendMessage("All",
+                             "AnalysisInitialized",
+                             {
+                                "path"    : self.referenceSpectraPath,
+                                "status"  : "error",
+                                "message" : str(e)
+                             }
+                            )
 
-        Args:
-            spectrum_profile (numpy.ndarray): The spectrum profile.
-            known_peaks_pixels (list): A list of pixel locations of known peaks.
-            known_peaks_wavelengths (list): A list of the corresponding wavelengths in nm.
-
-        Returns:
-            numpy.ndarray: The calibrated wavelength axis.
+    def handleMessage(self,message):
         """
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Analysis",
-                                        "Destination" : "All",
-                                        "Message"     : self.Calibrating()
-                                    }
-                                              )
-        pixel_axis = numpy.arange(len(spectrum_profile))
-        wavelength_axis = numpy.interp(pixel_axis, known_peaks_pixels, known_peaks_wavelengths)
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Analysis",
-                                        "Destination" : "All",
-                                        "Message"     : self.Calibrated()
-                                    }
-                                              )
-        return wavelength_axis
-    def extractSpectrumProfile(self, y_coord=0, height=5):
-        """extractSpectrumProfile
-
-        Extracts the spectrum's intensity profile from a region of the image.
-
-        Args:
-            y_coord (int): The central y-coordinate of the row from which to extract the spectrum.
-            height (int): The height of the region to average over to reduce noise.
-
-        Returns:
-            numpy.ndarray: A 1D array representing the spectrum's intensity.
+        Handles incoming messages.
         """
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Analysis",
-                                        "Destination" : "All",
-                                        "Message"     : self.GettingSpectrogram()
-                                    }
-                                              )
-        if y_coord < (height // 2):
-            raise ValueError("Y coordinate must be greater than half of the height")
-        # Calculate the upper and lower bounds of the region of interest (ROI)
-        start_y = max(0, y_coord - height // 2)
-        end_y = min(self.gray_image.shape[0], y_coord + height // 2 + 1)
-        
-        # Extract the region of interest (ROI)
-        roi = self.gray_image[start_y:end_y, :]
-        
-        # Calculate the mean intensity along the vertical axis (columns)
-        spectrum_profile = numpy.mean(roi, axis=0)
-        
-        self.communicator.outgoingQueue.append(
-                                    {
-                                        "Sender"      : "Analysis",
-                                        "Destination" : "All",
-                                        "Message"     : self.SpectrogramTaken()
-                                    }
-                                              )
+        msgType = message.get("Message",{}).get("type")
+        payload = message.get("Message",{}).get("payload",{})
 
-        return spectrum_profile
-    def identifySubstance(self, measured_wavelengths, measured_intensities, prominence_threshold=0.1):
-        """identifySubstance
-        Identifies the substance with the best match in the database.
-        Uses an approach based on finding and comparing peaks.
+        if msgType == "Analyze":
+            self.sendMessage("All","AnalysisRequested",{"status": "received"})
+            if self.referenceSpectra is None:
+                self.sendMessage("All",
+                                 "AnalysisError",
+                                 {
+                                    "message": "Cannot analyze: reference data not loaded."
+                                 }
+                                )
+                return
 
-        Args:
-            measured_wavelengths (numpy.ndarray): The wavelength axis of the measured spectrum.
-            measured_intensities (numpy.ndarray): The intensity of the measured spectrum.
-            prominence_threshold (float): The required prominence to consider a peak valid.
+            imageB64 = payload.get("image")
+            if imageB64:
+                # Decode the image from Base64
+                imgBytes = base64.b64decode(imageB64)
+                imgNp = numpy.frombuffer(imgBytes,dtype=numpy.uint8)
+                imageData = cv2.imdecode(imgNp,cv2.IMREAD_COLOR)
 
-        Returns:
-            str: The name of the best-matching substance, or "Unknown".
+                # Start analysis in a separate thread to avoid blocking
+                analysisThread = Thread(target=self.performAnalysis,args=(imageData,))
+                analysisThread.start()
+            else:
+                self.sendMessage("All","AnalysisError",{"message": "'Analyze' command received without image data."})
+    def performAnalysis(self,imageData):
         """
-        # Normalize the measured intensities
-        normalized_intensities = self.normalizeArray(measured_intensities)
-
-        # Find peaks in the measured spectrum
-        peaks, properties = find_peaks(normalized_intensities, prominence=prominence_threshold)
-        measured_peak_wavelengths = measured_wavelengths[peaks]
-
-        best_match = "Unknown"
-        max_matching_peaks = 0
-
-        print(f"\nDetected peaks in measured spectrum (wavelengths in nm): {measured_peak_wavelengths.round(2)}")
-
-        # Compare with each reference substance
-        for substance_name in self.reference_spectra.columns:
-            ref_intensities = self.reference_spectra[substance_name].values
-            ref_wavelengths = self.reference_spectra.index.values
-            ref_intensities = self.normalizeArray(ref_intensities)
-
-            # Find peaks in the reference spectrum
-            ref_peaks, _ = find_peaks(ref_intensities, prominence=prominence_threshold)
-            ref_peak_wavelengths = ref_wavelengths[ref_peaks]
-
-            # Count how many measured peaks match the reference ones (within a tolerance)
-            matching_peaks = 0
-            for measured_peak in measured_peak_wavelengths:
-                if any(numpy.isclose(measured_peak, ref_peak, atol=self.tolerance_nm) for ref_peak in ref_peak_wavelengths):
-                    matching_peaks += 1
+        Performs a complete analysis of a spectroscopic absorption image
+        by orchestrating the four phases of the analysis pipeline.
+        
+        Args:
+            imageData (numpy.ndarray): The pixel matrix of the color image.
+        """
+        print("Starting absorption spectrogram analysis...")
+        
+        try:
+            # Phase 1: Data Extraction and Pre-processing
+            intensityProfile = self.extractSpectrogramProfile(imageData)
             
-            print(f"Comparing with '{substance_name}': {matching_peaks} matching peaks.")
+            # Phase 2: Valley Detection (Points of maximum absorbance)
+            peaksIndices = self.detectAbsorbanceValleys(intensityProfile)
+            
+            # Phase 3: Comparison with reference spectra
+            results = self.compareWithReferences(peaksIndices,intensityProfile)
 
-            if matching_peaks > max_matching_peaks:
-                max_matching_peaks = matching_peaks
-                best_match = substance_name
+            # Phase 4: Sending results
+            self.sendAnalysisResults(results)
 
-        return best_match
-    def normalizeArray(self,arr):
-        min_val = numpy.min(arr)
-        max_val = numpy.max(arr)
-        if max_val - min_val == 0:
-            return numpy.zeros_like(arr)  # spettro piatto
-        return (arr - min_val) / (max_val - min_val)
-    #Signals
-    class Calibrating():
-        """Calibrating
+        except Exception as e:
+            self.sendMessage("All","AnalysisError",{"error": str(e)})
 
-        Signal for Calibrating Analysis
+    def extractSpectrogramProfile(self,imageData):
         """
-        def __init__(self):
-            self.description = "Calibrating the analysis module"
-    class Calibrated():
-        """Calibrated
-
-        Signal for Analysis calibrated
+        Extracts and pre-processes the 1D intensity profile from a 2D image.
+        
+        Args:
+            imageData (numpy.ndarray): The pixel matrix of the color image.
+            
+        Returns:
+            numpy.ndarray: The 1D intensity profile.
         """
-        def __init__(self):
-            self.description = "Analysis module calibrated"
-    class GettingStrip():
-        """GettingStrip
+        # Defining a Region of Interest (ROI) centered on the image
+        height,width,_ = imageData.shape
+        roiHeight = 20 # Example: a central band of 20 pixels
+        yStart = int(height / 2) - int(roiHeight / 2)
+        yEnd = yStart + roiHeight
+        roi = imageData
 
-        Signal for Getting Strip
+        # Converting the ROI to grayscale for intensity analysis
+        roiGray = cv2.cvtColor(roi,cv2.COLOR_BGR2GRAY)
+        
+        # Calculating the 1D intensity profile by averaging along the rows
+        intensityProfile = numpy.mean(roiGray,axis=0)
+        
+        return intensityProfile
+        
+    def detectAbsorbanceValleys(self,intensityProfile):
         """
-        def __init__(self):
-            self.description = "Getting the strip from the image"
-    class StripTaken():
-        """StripTaken
+        Detects valleys in the intensity profile by inverting the signal
+        and finding peaks.
+        
+        Args:
+            intensityProfile (numpy.ndarray): The 1D intensity profile.
+            
+        Returns:
+            numpy.ndarray: The indices of the detected peaks (original valleys).
+        """
+        # To detect valleys with find_peaks,we invert the signal.
+        # Maximum absorption corresponds to the minimum intensity.
+        invertedProfile = numpy.max(intensityProfile) - intensityProfile
 
-        Signal for Strip Taken"
-        """
-        def __init__(self):
-            self.description = "Strip Taken"
-    class GettingSpectrogram():
-        """GettingSpectrogram
+        # Finds peaks in the inverted profile,which correspond to the original valleys.
+        # The parameters are crucial for filtering noise.
+        peaksIndices,_ = find_peaks(
+            invertedProfile,
+            height=numpy.mean(invertedProfile) + numpy.std(invertedProfile) / 2,# Dynamic threshold
+            distance=5 # Minimum distance between peaks (in pixels)
+        )
+        
+        return peaksIndices
 
-        Signal for Getting Spectrogram
+    def compareWithReferences(self,peaksIndices,intensityProfile):
         """
-        def __init__(self):
-            self.description = "Taking the spectrogram"
-    class SpectrogramTaken():
-        """SpectrogramTaken
+        Compares detected peaks with the reference spectra and compiles the results.
+        
+        Args:
+            peaksIndices (numpy.ndarray): The indices of the detected peaks.
+            intensityProfile (numpy.ndarray): The 1D intensity profile.
+            
+        Returns:
+            dict: A dictionary containing the analysis results.
+        """
+        if self.referenceSpectra is None:
+            raise RuntimeError("Reference data not loaded. Cannot perform comparison.")
 
-        Signal for Spectrogram Taken
-        """
-        def __init__(self):
-            self.description = "Spectrogram taken"
-    class ComputingMaterials():
-        """ComputingMaterials
+        results = {
+            "detected_peaks"   : [],
+            "spectrogram_data" : intensityProfile.tolist()
+        }
+        
+        identifiedSubstances = set()
 
-        Signal for Computing Materials
-        """
-        def __init__(self):
-            self.description = "Computing materials"
-    class MaterialsComputed():
-        """MaterialsComputed
+        for peakIdx in peaksIndices:
+            # Example: pixel to wavelength conversion (assuming linear calibration)
+            pixelToNmFactor = 0.5 # nm per pixel,to be calibrated
+            estimatedWavelengthNm = peakIdx * pixelToNmFactor + 400 # Example offset
+            
+            # Comparison with reference data using numpy.isclose for tolerance
+            for _,row in self.referenceSpectra.iterrows():
+                refWavelength = row['wavelength']
+                
+                if numpy.isclose(estimatedWavelengthNm,refWavelength,atol=self.toleranceNm):
+                    substance = row['substance']
+                    if substance not in identifiedSubstances:
+                        print(f"Substance '{substance}' identified! Wavelength: {estimatedWavelengthNm:.2f} nm.")
+                        identifiedSubstances.add(substance)
 
-        Signal for Materials Computed
-        """
-        def __init__(self):
-            self.description = "Materials computed"
-    class ComparingSpectrograms():
-        """ComparingSpectrograms
+                    results["detected_peaks"].append({
+                        "pixel_index": int(peakIdx),
+                        "wavelength_nm": float(estimatedWavelengthNm),
+                        "intensity": float(intensityProfile[peakIdx]),
+                        "match": {
+                            "substance": substance,
+                            "reference_nm": float(refWavelength),
+                            "delta_nm": abs(estimatedWavelengthNm - refWavelength)
+                        }
+                    })
+                    break # A peak corresponds to only one reference substance
 
-        Signal for Comparing Spectrograms
-        """
-        def __init__(self):
-            self.description = "Comparing Spectrograms"
-    class SpectrogramsCompared():
-        """SpectrogramsCompared
+        results["identified_substances"] = list(identifiedSubstances)
+        
+        return results
 
-        Signal for Spectrograms Compared
+    def sendAnalysisResults(self,results):
         """
-        def __init__(self):
-            self.description = "Spectrograms compared"
+        Sends the final analysis results message.
+        
+        Args:
+            results (dict): The dictionary of analysis results.
+        """
+        self.sendMessage("All","AnalysisComplete",results)
+        print("Analysis complete and results sent.")

@@ -1,0 +1,49 @@
+{
+  "network": {
+    "address": "127.0.0.1",
+    "port": 1025,
+    "client_reconnect_delay_s": 3
+  },
+  "system": {
+    "module_message_queue_timeout_s": 0.1
+  },
+  "modules": {
+    "lightSource": {
+      "enabled": true,
+      "pin": 18,
+      "dma": 10,
+      "brightness": 0.5,
+      "pwm_channel": 0
+    },
+    "cuvetteSensor": {
+      "enabled": true,
+      "pin": 17,
+      "poll_interval_s": 0.1,
+      "calibration": {
+        "samples": 100,
+        "threshold_span": 0.1
+      }
+    },
+    "camera": {
+      "enabled": true,
+      "resolution": [
+        1920,
+        1080
+      ]
+    },
+    "analysis": {
+      "enabled": true,
+      "reference_spectra_path": "data/reference_spectra.csv",
+      "tolerance_nm": 10
+    },
+    "logger": {
+      "enabled": true,
+      "destination": ["stdout", "file"],
+      "path": "app.log",
+      "network": {
+        "address": "127.0.0.1",
+        "port": 1026
+      }
+    }
+  }
+}

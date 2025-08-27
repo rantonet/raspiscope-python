@@ -17,10 +17,12 @@ python-prctl==1.8.1
 pytz==2025.2
 referencing==0.36.2
 rpds-py==0.26.0
-scipy==1.16.0
+rpi_ws281x==5.0.0
+scipy==1.15.0
 setuptools==80.9.0
 simplejpeg==1.8.2
 six==1.17.0
 tqdm==4.67.1
 tzdata==2025.2
 v4l2-python3==0.3.5
+rpi-libcamera==0.1a10
