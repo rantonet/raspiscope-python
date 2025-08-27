@@ -39,7 +39,7 @@ class TestEventManager(unittest.TestCase):
         self.communicator_patcher.stop()
         
     def test_instantiateModules(self):
-        """Verifica che _instantiateModules istanzi solo i moduli abilitati."""
+        """Verifies that _instantiateModules only instantiates enabled modules."""
         enabled_modules = self.event_manager._instantiateModules()
         enabled_names = [m.name for m in enabled_modules]
         
@@ -52,7 +52,7 @@ class TestEventManager(unittest.TestCase):
     @patch('eventManager.Process', MagicMock(spec=Process))
     @patch('eventManager.Thread')
     def test_run_starts_components(self, mock_thread):
-        """Verifica che il metodo run() avvii thread e processi."""
+        """Verifies that the run() method starts threads and processes."""
         with patch.object(self.event_manager, '_stopEvent') as mock_stop_event, \
              patch.object(self.event_manager, 'route') as mock_route:
             mock_stop_event.is_set.side_effect = [False, True]
@@ -64,7 +64,7 @@ class TestEventManager(unittest.TestCase):
                 p_info['process'].start.assert_called_once()
 
     def test_cleanup(self):
-        """Verifica che il metodo _cleanup termini tutti i processi dei moduli."""
+        """Verifies that the _cleanup method terminates all module processes."""
         mock_process_1 = MagicMock(spec=Process)
         mock_process_2 = MagicMock(spec=Process)
         self.event_manager.runningProcesses = [

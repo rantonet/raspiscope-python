@@ -35,21 +35,21 @@ class TestCuvetteSensor(unittest.TestCase):
         self.mock_gpiozero_patcher.stop()
 
     def test_onStart_success(self):
-        """Verifica la corretta inizializzazione del sensore e la calibrazione."""
+        """Verifies the correct initialization of the sensor and calibration."""
         with patch.object(self.sensor_module, 'calibrate') as mock_calibrate:
             self.sensor_module.onStart()
             self.mock_module.log.assert_called_once_with("INFO", "Cuvette sensor initialized.")
             mock_calibrate.assert_called_once()
             
     def test_onStart_error(self):
-        """Verifica la gestione di un errore di inizializzazione del sensore."""
+        """Verifies the handling of a sensor initialization error."""
         with patch('cuvetteSensor.InputDevice', side_effect=GPIOZeroError("Test error")):
             self.sensor_module.onStart()
             self.mock_module.log.assert_called_once_with("ERROR", "Could not initialize sensor on pin 17. Details: Test error")
             self.assertIsNone(self.sensor_module.sensor)
 
     def test_calibrate_success(self):
-        """Verifica la corretta calibrazione del sensore."""
+        """Verifies the correct calibration of the sensor."""
         self.sensor_module.sensor = self.mock_input_device
         self.sensor_module.calibrate()
         self.assertEqual(self.sensor_module.presenceThreshold, 0.4) # 0.5 - 0.1
@@ -59,19 +59,19 @@ class TestCuvetteSensor(unittest.TestCase):
         ])
 
     def test_calibrate_error_no_sensor(self):
-        """Verifica il log di un errore se il sensore non è inizializzato."""
+        """Verifies logging an error if the sensor is not initialized."""
         self.sensor_module.sensor = None
         self.sensor_module.calibrate()
         self.mock_module.sendMessage.assert_called_once_with("All", "CalibrationError", {"message": "Cannot calibrate: sensor not initialized."})
 
     def test_checkPresence_state_change(self):
-        """Verifica che il modulo invii messaggi quando lo stato del sensore cambia."""
+        """Verifies that the module sends messages when the sensor state changes."""
         self.sensor_module.presenceThreshold = 0.5
         
-        # Scenario 1: Nessuna cuvetta -> Cuvetta inserita
+        # Scenario 1: No cuvette -> Cuvette inserted
         self.sensor_module.isPresent = False
         self.sensor_module.sensor = self.mock_input_device
-        self.mock_input_device.value = 0.4 # Sotto la soglia
+        self.mock_input_device.value = 0.4 # Below the threshold
         self.sensor_module.checkPresence()
         self.assertTrue(self.sensor_module.isPresent)
         self.mock_module.sendMessage.assert_has_calls([
@@ -79,9 +79,9 @@ class TestCuvetteSensor(unittest.TestCase):
             call("Logger", "LogMessage", {"level": "INFO", "message": "Cuvette inserted."})
         ])
 
-        # Scenario 2: Cuvetta inserita -> Cuvetta rimossa
+        # Scenario 2: Cuvette inserted -> Cuvette removed
         self.mock_module.sendMessage.reset_mock()
-        self.mock_input_device.value = 0.6 # Sopra la soglia
+        self.mock_input_device.value = 0.6 # Above the threshold
         self.sensor_module.checkPresence()
         self.assertFalse(self.sensor_module.isPresent)
         self.mock_module.sendMessage.assert_has_calls([
@@ -90,7 +90,7 @@ class TestCuvetteSensor(unittest.TestCase):
         ])
 
     def test_mainLoop_polling(self):
-        """Verifica che il mainLoop chiami checkPresence a intervalli regolari."""
+        """Verifies that the mainLoop calls checkPresence at regular intervals."""
         self.sensor_module.sensor = self.mock_input_device
         with patch.object(self.sensor_module, 'checkPresence') as mock_check, \
              patch.object(self.sensor_module, 'stop_event') as mock_stop_event, \

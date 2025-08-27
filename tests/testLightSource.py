@@ -29,21 +29,21 @@ class TestLightSource(unittest.TestCase):
         self.mock_module_patcher.stop()
 
     def test_onStart_success(self):
-        """Verifica la corretta inizializzazione della striscia LED."""
+        """Verifies the correct initialization of the LED strip."""
         self.light_source_module.onStart()
         self.mock_pixelstrip.begin.assert_called_once()
         self.mock_pixelstrip.setPixelColor.assert_called_once_with(0, "Color(0,0,0)")
         self.mock_module.log.assert_called_once_with("INFO", "Light source initialized.")
 
     def test_onStart_error(self):
-        """Verifica la gestione di un errore di inizializzazione."""
+        """Verifies the handling of an initialization error."""
         self.mock_pixelstrip.begin.side_effect = Exception("Test Error")
         self.light_source_module.onStart()
         self.mock_module.log.assert_called_once_with("ERROR", "Could not initialize light source. Run as root? Details: Test Error")
         self.assertIsNone(self.light_source_module.led)
 
     def test_turnOn(self):
-        """Verifica che turnOn imposti il colore e mostri il risultato."""
+        """Verifies that turnOn sets the color and shows the result."""
         self.light_source_module.led = self.mock_pixelstrip
         self.light_source_module.is_on = False
         self.light_source_module.turnOn()
@@ -60,7 +60,7 @@ class TestLightSource(unittest.TestCase):
         ])
 
     def test_dim(self):
-        """Verifica che dim regoli la luminosità e invii i messaggi di log."""
+        """Verifies that dim adjusts the brightness and sends log messages."""
         self.light_source_module.led = self.mock_pixelstrip
         self.light_source_module.is_on = True
         self.light_source_module.dim(100)
@@ -73,7 +73,7 @@ class TestLightSource(unittest.TestCase):
         ])
 
     def test_onStop(self):
-        """Verifica che onStop spenga la luce e invii il log."""
+        """Verifies that onStop turns off the light and sends the log."""
         self.light_source_module.led = self.mock_pixelstrip
         with patch.object(self.light_source_module, 'turnOff') as mock_turn_off:
             self.light_source_module.onStop()

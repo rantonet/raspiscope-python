@@ -6,10 +6,11 @@ from configLoader import loadConfig
 
 class TestConfigLoader(unittest.TestCase):
     def setUp(self):
+        # Reset the cached config for each test
         loadConfig._config = None
 
     def test_loadConfig_success(self):
-        """Verifica il caricamento riuscito di un file di configurazione valido."""
+        """Verifies the successful loading of a valid configuration file."""
         valid_config_data = {
             "network": {},
             "system": {},
@@ -24,7 +25,7 @@ class TestConfigLoader(unittest.TestCase):
             self.assertEqual(loadConfig._config, valid_config_data)
 
     def test_loadConfig_file_not_found(self):
-        """Verifica la gestione di un FileNotFoundError."""
+        """Verifies the handling of a FileNotFoundError."""
         with patch('builtins.open', side_effect=FileNotFoundError), \
              patch('sys.exit') as mock_exit, \
              patch('builtins.print'): # Suppress print
@@ -32,7 +33,7 @@ class TestConfigLoader(unittest.TestCase):
             mock_exit.assert_called_once_with(1)
             
     def test_loadConfig_invalid_json(self):
-        """Verifica la gestione di un JSON non valido."""
+        """Verifies the handling of invalid JSON."""
         invalid_json_data = "{'network': 'invalid'"
         with patch('builtins.open', mock_open(read_data=invalid_json_data)), \
              patch('json.JSONDecodeError', create=True) as mock_json_error, \
@@ -47,7 +48,7 @@ class TestConfigLoader(unittest.TestCase):
                 mock_exit.assert_called_once_with(1)
 
     def test_loadConfig_missing_key(self):
-        """Verifica la gestione di una chiave mancante."""
+        """Verifies the handling of a missing key."""
         incomplete_config_data = {
             "network": {},
             "system": {}

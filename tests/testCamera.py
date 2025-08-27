@@ -25,7 +25,7 @@ class TestCamera(unittest.TestCase):
         self.mock_module_patcher.stop()
 
     def test_onStart_success(self):
-        """Verifica l'inizializzazione e la configurazione della fotocamera."""
+        """Verifies the initialization and configuration of the camera."""
         self.camera_module.onStart()
         self.mock_picamera2.create_still_configuration.assert_called_once_with({"size": (1920, 1080)})
         self.mock_picamera2.configure.assert_called_once()
@@ -33,14 +33,14 @@ class TestCamera(unittest.TestCase):
         self.mock_module.log.assert_called_once_with("INFO", "Camera started and configured with resolution (1920, 1080).")
 
     def test_onStart_error(self):
-        """Verifica la gestione di un errore di inizializzazione della fotocamera."""
+        """Verifies the handling of a camera initialization error."""
         with patch('camera.Picamera2', side_effect=Exception("Test Error")):
             self.camera_module.onStart()
             self.assertIsNone(self.camera_module.camera)
             self.mock_module.log.assert_called_once_with("ERROR", "Could not initialize camera: Test Error")
 
     def test_handleMessage_take_and_cuvette_present(self):
-        """Verifica che il messaggio 'Take' o 'CuvettePresent' attivi la cattura dell'immagine."""
+        """Verifies that the 'Take' or 'CuvettePresent' message triggers picture capture."""
         self.camera_module.camera = self.mock_picamera2
         with patch.object(self.camera_module, 'takePicture') as mock_take_picture:
             self.camera_module.handleMessage({"Message": {"type": "Take"}})
@@ -50,7 +50,7 @@ class TestCamera(unittest.TestCase):
             mock_take_picture.assert_called_once()
     
     def test_takePicture(self):
-        """Verifica la cattura e l'invio dell'immagine."""
+        """Verifies the capture and sending of the image."""
         mock_image_array = np.zeros((100, 100, 3), dtype=np.uint8)
         self.camera_module.camera = self.mock_picamera2
         self.mock_picamera2.capture_array.return_value = mock_image_array
@@ -69,7 +69,7 @@ class TestCamera(unittest.TestCase):
             ])
 
     def test_onStop(self):
-        """Verifica che la fotocamera venga fermata al momento dello stop del modulo."""
+        """Verifies that the camera is stopped when the module terminates."""
         self.camera_module.camera = self.mock_picamera2
         self.mock_picamera2.started = True
         self.camera_module.onStop()

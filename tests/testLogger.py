@@ -16,7 +16,7 @@ class TestLogger(unittest.TestCase):
 
     @patch('builtins.print')
     def test_handle_stdout_destination(self, mock_print):
-        """Verifica che i messaggi di log siano stampati su stdout."""
+        """Verifies that log messages are printed to stdout."""
         logger_module = Logger(self.logger_config_stdout, self.mock_network_config, self.mock_system_config)
         logger_module.handleMessage({
             "Sender": "TestModule",
@@ -32,7 +32,7 @@ class TestLogger(unittest.TestCase):
         self.assertIn("[TestModule] (INFO): Test message.", mock_print.call_args[0][0])
 
     def test_handle_file_destination(self):
-        """Verifica che i messaggi di log siano scritti su un file."""
+        """Verifies that log messages are written to a file."""
         mock_file_open = mock_open()
         with patch('builtins.open', mock_file_open), \
              patch.object(time, 'strftime', return_value="2025-01-01 12:00:00"):
@@ -62,7 +62,7 @@ class TestLogger(unittest.TestCase):
     
     @patch('builtins.print')
     def test_handle_file_and_stdout_destination(self, mock_print):
-        """Verifica che i messaggi siano inviati sia al file che a stdout."""
+        """Verifies that messages are sent to both file and stdout."""
         mock_file_open = mock_open()
         with patch('builtins.open', mock_file_open), \
              patch.object(time, 'strftime', return_value="2025-01-01 12:00:00"):
@@ -87,7 +87,7 @@ class TestLogger(unittest.TestCase):
             mock_file_open().flush.assert_called_once()
 
     def test_onStop(self):
-        """Verifica che onStop chiuda il file di log."""
+        """Verifies that onStop closes the log file."""
         mock_file_open = mock_open()
         with patch('builtins.open', mock_file_open):
             logger_module = Logger(self.logger_config_file, self.mock_network_config, self.mock_system_config)

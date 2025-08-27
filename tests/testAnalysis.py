@@ -32,7 +32,7 @@ class TestAnalysis(unittest.TestCase):
         self.mock_module_patcher.stop()
 
     def test_onStart_success(self):
-        """Verifica il caricamento riuscito dei dati di riferimento."""
+        """Verifies the successful loading of reference data."""
         with patch('pandas.read_csv', return_value=self.mock_reference_spectra), \
              patch.object(self.analysis_module, 'sendMessage') as mock_send:
             self.analysis_module.onStart()
@@ -41,7 +41,7 @@ class TestAnalysis(unittest.TestCase):
             self.mock_module.log.assert_called_once_with("INFO", "Reference data loaded successfully.")
 
     def test_onStart_file_not_found(self):
-        """Verifica la gestione di un FileNotFoundError."""
+        """Verifies the handling of a FileNotFoundError."""
         with patch('pandas.read_csv', side_effect=FileNotFoundError), \
              patch.object(self.analysis_module, 'sendMessage') as mock_send:
             self.analysis_module.onStart()
@@ -51,7 +51,7 @@ class TestAnalysis(unittest.TestCase):
 
     @patch('analysis.Thread')
     def test_handleMessage_analyze_with_image(self, mock_thread):
-        """Verifica che un messaggio 'Analyze' avvii un nuovo thread."""
+        """Verifies that an 'Analyze' message starts a new thread."""
         self.analysis_module.referenceSpectra = self.mock_reference_spectra
         mock_payload = {"image": "mock_base64_image_data"}
         mock_image_data = np.zeros((10, 10, 3), dtype=np.uint8)
@@ -70,7 +70,7 @@ class TestAnalysis(unittest.TestCase):
             self.mock_module.log.assert_called_once_with("INFO", "Analysis requested. Starting new thread.")
 
     def test_performAnalysis_success(self):
-        """Verifica che la pipeline di analisi venga eseguita con successo."""
+        """Verifies that the analysis pipeline runs successfully."""
         mock_image = np.zeros((100, 200, 3), dtype=np.uint8)
         self.analysis_module.referenceSpectra = self.mock_reference_spectra
         

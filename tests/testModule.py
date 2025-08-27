@@ -14,7 +14,7 @@ class TestModule(unittest.TestCase):
             self.test_module = Module("TestModule", self.mock_network_config, self.mock_system_config)
 
     def test_run_lifecycle(self):
-        """Verifica che il metodo run() chiami onStart, mainLoop e onStop."""
+        """Verifies that the run() method calls onStart, mainLoop and onStop."""
         with patch.object(self.test_module, 'onStart') as mock_onStart, \
              patch.object(self.test_module, 'mainLoop') as mock_mainLoop, \
              patch.object(self.test_module, 'onStop') as mock_onStop, \
@@ -33,7 +33,7 @@ class TestModule(unittest.TestCase):
             ])
 
     def test_mainLoop_message_handling(self):
-        """Verifica che il mainLoop gestisca i messaggi in arrivo e il segnale di stop."""
+        """Verifies that the mainLoop handles incoming messages and the stop signal."""
         mock_message = {"Message": {"type": "TestMessage", "payload": {}}}
         self.mock_communicator.incomingQueue.get.side_effect = [
             mock_message,
@@ -49,7 +49,7 @@ class TestModule(unittest.TestCase):
             self.assertTrue(self.test_module.stopEvent.is_set())
 
     def test_mainLoop_empty_queue(self):
-        """Verifica che il mainLoop non si blocchi se la coda è vuota."""
+        """Verifies that the mainLoop does not block if the queue is empty."""
         self.mock_communicator.incomingQueue.get.side_effect = [
             Empty,
             {"Message": {"type": "Stop"}}
@@ -61,7 +61,7 @@ class TestModule(unittest.TestCase):
             mock_handleMessage.assert_not_called()
 
     def test_sendMessage(self):
-        """Verifica che sendMessage formatti correttamente il messaggio e lo metta nella coda."""
+        """Verifies that sendMessage correctly formats the message and puts it in the queue."""
         destination = "TargetModule"
         msg_type = "Ping"
         payload = {"data": 123}
@@ -79,7 +79,7 @@ class TestModule(unittest.TestCase):
         self.mock_communicator.outgoingQueue.put.assert_called_once_with(expected_message)
 
     def test_log(self):
-        """Verifica che il metodo log chiami sendMessage con il formato corretto."""
+        """Verifies that the log method calls sendMessage with the correct format."""
         with patch.object(self.test_module, 'sendMessage') as mock_send_message:
             self.test_module.log("ERROR", "Test error message")
             
