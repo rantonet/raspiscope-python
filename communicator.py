@@ -1,198 +1,221 @@
-# communicator.py
 import json
-import asyncio
-import websockets
+import socket
+from threading import Thread,Event
 from queue import Queue,Empty,Full
-from threading import RLock,Event
 
 class Communicator:
     """
-    Manages WebSocket communication for a module or the EventManager.
-    It uses thread-safe queues to decouple network I/O from the main logic.
+    Handles inter-process communication (IPC) for modules and the EventManager.
+    It works as either a server (for the EventManager) or a client (for modules),
+    using a network socket to send and receive JSON-formatted messages.
+
+    The event format is a JSON dictionary with the following mandatory keys:
+
+    - **"Sender"** (str): The unique name of the module that sent the message (e.g., "CuvetteSensor").
+    - **"Destination"** (str): The unique name of the target module. "All" can be used for broadcast messages.
+    - **"Message"** (dict): A nested dictionary containing the message details.
+      - **"type"** (str): A string representing the type of event (e.g., "CuvettePresent", "TurnOn", "LogMessage").
+      - **"payload"** (dict, optional): A dictionary containing the data associated with the event. The structure of this dictionary depends on the `type` of the message. This field is optional and can be an empty dictionary if no data is needed.
     """
     def __init__(self,commType,name,config):
         """
-        Initializes the Communicator.
+        Initializes the Communicator instance.
 
         Args:
-            commType (str): The type of communicator,either "client" or "server".
-            name (str): The name of the owner module,used for registration.
-            config (dict): A dictionary containing network configuration.
-                           Expected keys: 'address','port','client_reconnect_delay_s'.
+            commType (str): "server" for the EventManager or "client" for a Module.
+            name (str): The name of the module or "Server" for the EventManager.
+            config (dict): The network configuration with 'address' and 'port'.
         """
-        self.name = name
-        self.type = commType
-        self.config = config
-        self.uri = f"ws://{self.config['address']}:{self.config['port']}"
-        
-        self.incomingQueue = Queue()
-        self.outgoingQueue = Queue()
+        self.commType       = commType
+        self.name           = name
+        self.config         = config
+        self.conn           = None
+        self.server_socket  = None
+        self.incomingQueue  = Queue()
+        self.outgoingQueue  = Queue()
+        self.client_threads = []
+        self.client_sockets = {}
 
-        self.clients = {}
-        self.lock = RLock()
-        
-        self.loop = None
+    def run(self,stopEvent=None):
+        """
+        Starts the communication loop. The behavior depends on whether the
+        instance is a server or a client.
+        """
+        if self.commType == "server":
+            self._runServer(stopEvent)
+        elif self.commType == "client":
+            self._runClient(stopEvent)
+        else:
+            print(f"Error: Unknown communicator type '{self.commType}'")
 
-    def run(self,stopEvent: Event):
-        """Starts the main asyncio event loop."""
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-        
-        if self.type == "server":
-            self.loop.run_until_complete(self.startServer(stopEvent))
-        else: # client
-            self.loop.run_until_complete(self.startClient(stopEvent))
-        
-        self.loop.close()
+    # --- Server-side methods ---
+    def _runServer(self,stopEvent):
+        """
+        Runs the server loop for the EventManager.
+        Accepts connections and manages threads for each client.
+        """
+        self.server_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+        self.server_socket.settimeout(1.0) # To allow graceful exit
 
-    async def startServer(self,stopEvent: Event):
-        """Starts the WebSocket server and its consumer task."""
-        print(f"Server listening on {self.uri}")
-        host,port = self.uri.split('//')[1].split(':')
-        
-        consumerTask = asyncio.create_task(self.serverConsumer(stopEvent))
-
-        async with websockets.serve(self.serverHandler,host,int(port)):
-            done,pending = await asyncio.wait([consumerTask,asyncio.create_task(stopEvent.wait())],
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            for task in pending:
-                task.cancel()
-
-    async def startClient(self,stopEvent: Event):
-        """Starts the WebSocket client and handles reconnection."""
-        reconnectDelay = self.config.get("client_reconnect_delay_s",3)
-        while not stopEvent.is_set():
-            try:
-                async with websockets.connect(self.uri) as websocket:
-                    print(f"Module '{self.name}' connected to server.")
-                    await self.register(websocket)
-                    
-                    consumerTask = asyncio.create_task(self.clientConsumer(websocket,stopEvent))
-                    producerTask = asyncio.create_task(self.producer(websocket))
-                    
-                    done,pending = await asyncio.wait([consumerTask,asyncio.create_task(stopEvent.wait())],
-                        return_when=asyncio.FIRST_COMPLETED
-                    )
-                    for task in pending:
-                        task.cancel()
-            except (ConnectionRefusedError,websockets.exceptions.ConnectionClosed) as e:
-                print(f"Connection failed for '{self.name}': {e}. Retrying in {reconnectDelay} seconds...")
-                await asyncio.sleep(reconnectDelay)
-            except Exception as e:
-                print(f"Unexpected error in client communicator: {e}")
-                break
-    
-    async def serverHandler(self,websocket,path):
-        """Handles connections from individual clients to the server."""
-        clientName = None
         try:
-            regMessageStr = await websocket.recv()
-            regMessage = json.loads(regMessageStr)
-            
-            if regMessage.get("Message",{}).get("type") == "register":
-                clientName = regMessage.get("Sender")
-                with self.lock:
-                    self.clients[clientName] = websocket
-                print(f"Client '{clientName}' connected and registered.")
-                try:
-                    self.incomingQueue.put(regMessage) # Forward the registration message
-                except Full:
-                    pass
-            else:
-                return
-
-            # This handler now only needs to produce messages from this client.
-            # The single serverConsumer handles sending messages TO this client.
-            await self.producer(websocket)
-
-        except websockets.exceptions.ConnectionClosed:
-            print(f"Client '{clientName}' disconnected.")
-        finally:
-            if clientName:
-                with self.lock:
-                    if clientName in self.clients:
-                        del self.clients[clientName]
-
-    async def producer(self,websocket):
-        """Reads messages from the websocket and puts them into the incomingQueue."""
-        async for messageStr in websocket:
+            self.server_socket.bind((self.config['address'],self.config['port']))
+            self.server_socket.listen(5)
+            print(f"Server started on {self.config['address']}:{self.config['port']}")
+        except OSError as e:
+            print(f"ERROR: Could not start server. Details: {e}")
+            return
+        
+        while not stopEvent.is_set():
             try:
-                message = json.loads(messageStr)
-                self.incomingQueue.put(message)
-            except json.JSONDecodeError:
-                print(f"JSON decode error: {messageStr}")
-            except Full:
-                pass
+                conn,addr = self.server_socket.accept()
+                print(f"Accepted connection from {addr}")
+                
+                # Identify client by its initial message
+                initial_msg_data = conn.recv(1024).decode('utf-8')
+                initial_msg = json.loads(initial_msg_data)
+                client_name = initial_msg.get('name')
+                
+                if client_name:
+                    self.client_sockets[client_name] = conn
+                    conn.settimeout(1.0)
+                    client_thread = Thread(target=self._serverHandleClient,args=(client_name,conn,stopEvent))
+                    client_thread.daemon = True
+                    self.client_threads.append(client_thread)
+                    client_thread.start()
+                    print(f"Client thread started for '{client_name}'")
+                else:
+                    conn.close()
+                    print("Received connection from unknown client. Connection closed.")
+            except socket.timeout:
+                continue
+            except Exception as e:
+                print(f"Server error: {e}")
+                
+        # Cleanup
+        for client_thread in self.client_threads:
+            if client_thread.is_alive():
+                client_thread.join(timeout=1.0)
+        self.server_socket.close()
 
-    async def serverConsumer(self,stopEvent: Event):
+    def _serverHandleClient(self,client_name,conn,stopEvent):
         """
-        Server-specific consumer. Takes messages from the outgoingQueue 
-        and dispatches them to the correct client websocket.
+        Thread-specific loop for handling a single client connection.
+        """
+        # A server handler might also need to send messages to the client,
+        # but for this specific application, the EventManager handles routing
+        # and doesn't directly send back to the client. This is a placeholder.
+        while not stopEvent.is_set():
+            try:
+                data = conn.recv(4096).decode('utf-8')
+                if data:
+                    messages = self._parseMessages(data)
+                    for message in messages:
+                        self.incomingQueue.put(message)
+                else: # Client disconnected
+                    print(f"Client '{client_name}' disconnected.")
+                    break
+            except socket.timeout:
+                continue
+            except (socket.error,ConnectionResetError):
+                print(f"Client '{client_name}' connection lost.")
+                break
+            except Exception as e:
+                print(f"Error handling client '{client_name}': {e}")
+                break
+
+    # --- Client-side methods ---
+    def _runClient(self,stopEvent):
+        """
+        Runs the client loop for a module.
+        Manages connection to the server and message exchange.
         """
         while not stopEvent.is_set():
             try:
-                messageToSend = await self.loop.run_in_executor(
-                    None,self.outgoingQueue.get,True,0.1
-                )
+                self.conn = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                self.conn.connect((self.config['address'],self.config['port']))
+                self.conn.settimeout(1.0)
                 
-                destination,messageDict = messageToSend
-                
-                if destination == "All":
-                    await self.broadcast(messageDict)
-                else:
-                    targetWs = None
-                    with self.lock:
-                        targetWs = self.clients.get(destination)
-                    
-                    if targetWs:
-                        try:
-                            await targetWs.send(json.dumps(messageDict))
-                        except websockets.exceptions.ConnectionClosed:
-                            print(f"Could not send to '{destination}': connection closed.")
-                    else:
-                        # This can happen if a module disconnects right before a message is sent
-                        pass
+                # Send name for identification
+                initial_msg = json.dumps({"name": self.name})
+                self.conn.sendall(initial_msg.encode('utf-8'))
 
-                self.outgoingQueue.task_done()
-            except Empty:
-                await asyncio.sleep(0.01)
+                print(f"Client '{self.name}' connected to server.")
+                
+                # Start a separate thread to handle sending messages
+                send_thread = Thread(target=self._clientSendLoop,args=(stopEvent,))
+                send_thread.daemon = True
+                send_thread.start()
+
+                self._clientReceiveLoop(stopEvent)
+                
+                send_thread.join()
+
+            except (ConnectionRefusedError,socket.timeout):
+                print("Connection failed. Retrying in 3 seconds...")
+                time.sleep(3)
             except Exception as e:
-                print(f"Error in server consumer: {e}")
+                print(f"Client '{self.name}' error: {e}")
+                self.conn.close()
+                break
+        
+        if self.conn:
+            self.conn.close()
 
-    async def clientConsumer(self,websocket,stopEvent: Event):
-        """Client-specific consumer. Takes messages from the outgoingQueue and sends them."""
-        while not stopEvent.is_set() and not websocket.closed:
+    def _clientReceiveLoop(self,stopEvent):
+        """
+        Receives messages from the server and puts them in the incoming queue.
+        """
+        while not stopEvent.is_set():
             try:
-                messageToSend = await self.loop.run_in_executor(
-                    None,self.outgoingQueue.get,True,0.1
-                )
-                await websocket.send(json.dumps(messageToSend))
-                self.outgoingQueue.task_done()
-            except Empty:
-                await asyncio.sleep(0.01) # Non-blocking wait
-            except Full:
-                pass
-            except websockets.exceptions.ConnectionClosed:
+                data = self.conn.recv(4096).decode('utf-8')
+                if data:
+                    messages = self._parseMessages(data)
+                    for message in messages:
+                        self.incomingQueue.put(message)
+                else:
+                    print("Server disconnected.")
+                    break
+            except socket.timeout:
+                continue
+            except (socket.error,ConnectionResetError):
+                print("Connection to server lost.")
+                break
+            except Exception as e:
+                print(f"Error receiving data: {e}")
                 break
 
-    async def register(self,websocket):
-        """Sends the registration message for a client."""
-        regMessage = {
-            "Sender"      : self.name,
-            "Destination" : "EventManager",
-            "Message"     : {"type": "register"}
-        }
-        await websocket.send(json.dumps(regMessage))
+    def _clientSendLoop(self,stopEvent):
+        """
+        Sends messages from the outgoing queue to the server.
+        """
+        while not stopEvent.is_set():
+            try:
+                message = self.outgoingQueue.get(block=True,timeout=1.0)
+                json_data = json.dumps(message)
+                self.conn.sendall(json_data.encode('utf-8'))
+                self.outgoingQueue.task_done()
+            except Empty:
+                continue
+            except (socket.error,ConnectionResetError):
+                print("Failed to send message: connection lost.")
+                break
+            except Exception as e:
+                print(f"Error sending message: {e}")
+                break
 
-    async def broadcast(self,messageDict):
-        """Sends a message to all connected clients (server only)."""
-        sender = messageDict.get("Sender")
-        messageStr = json.dumps(messageDict)
-        with self.lock:
-            # Create a copy of the list to avoid issues if clients disconnect during iteration
-            clientsToSend = [ws for name,ws in self.clients.items() if name!= sender]
-        
-        if clientsToSend:
-            tasks = []
-            await asyncio.gather(*tasks,return_exceptions=True)
+    # --- Utility methods ---
+    def _parseMessages(self,data):
+        """
+        Parses a raw data string into a list of JSON messages.
+        Handles the case where multiple messages are received at once.
+        """
+        messages = []
+        try:
+            # Assuming one message per recv() for simplicity,
+            # a more robust implementation would handle message boundaries
+            # by parsing a header or a delimiter.
+            messages.append(json.loads(data))
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error: {e}")
+        return messages
