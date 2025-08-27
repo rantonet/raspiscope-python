@@ -1,7 +1,7 @@
 import json
 import socket
 from threading import Thread,Event
-from queue import Queue,Empty,Full
+from queue     import Queue,Empty,Full
 
 class Communicator:
     """
