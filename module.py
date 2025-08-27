@@ -1,8 +1,7 @@
-# module.py
 import json
 import time
-from threading import Thread,Event
-from queue import Empty,Full
+from threading    import Thread, Event
+from queue        import Empty, Full
 from communicator import Communicator
 
 class Module:
@@ -29,8 +28,10 @@ class Module:
     def run(self):
         """
         Starts the module's main thread and message loops.
+        It orchestrates the module's lifecycle by calling onStart,
+        mainLoop, and onStop methods, and manages its communication thread.
         """
-        print(f"Module '{self.name}' starting.")
+        self.log("INFO",f"Module '{self.name}' starting.")
         self.communicatorThread = Thread(target=self.communicator.run,args=(self.stopEvent,))
         self.communicatorThread.start()
 
@@ -40,7 +41,7 @@ class Module:
         self.onStop()
         if self.communicatorThread:
             self.communicatorThread.join()
-        print(f"Module '{self.name}' terminated.")
+        self.log("INFO",f"Module '{self.name}' terminated.")
 
     def mainLoop(self):
         """
@@ -52,7 +53,7 @@ class Module:
                 message = self.communicator.incomingQueue.get(block=True,timeout=self.queueTimeout)
 
                 if message.get("Message",{}).get("type") == "Stop":
-                    print(f"Module '{self.name}' received stop signal.")
+                    self.log("INFO",f"Module '{self.name}' received stop signal.")
                     self.stopEvent.set()
                     break
                 
@@ -79,6 +80,20 @@ class Module:
             self.communicator.outgoingQueue.put(message)
         except Full:
             pass
+
+    def log(self,level,message):
+        """
+        Sends a log message to the Logger module.
+        
+        Args:
+            level (str): The log level (e.g., "INFO","ERROR","DEBUG").
+            message (str): The text of the log message.
+        """
+        payload = {
+            "level"   : level,
+            "message" : message
+        }
+        self.sendMessage("Logger","LogMessage",payload)
 
     # --- Methods to be overridden in child classes ---
 

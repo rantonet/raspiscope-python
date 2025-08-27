@@ -1,8 +1,8 @@
 import time
-from gpiozero import InputDevice,GPIOZeroError
-from threading import Thread
-from module import Module
 import statistics
+from gpiozero     import InputDevice,GPIOZeroError
+from threading    import Thread
+from module       import Module
 
 class CuvetteSensor(Module):
     """
@@ -53,12 +53,10 @@ class CuvetteSensor(Module):
 
             if currentlyPresent and not self.isPresent:
                 self.isPresent = True
-                print("Cuvette inserted.")
-                self.sendMessage("All","CuvettePresent")
+                self.sendMessage("Camera","CuvettePresent")
             elif not currentlyPresent and self.isPresent:
                 self.isPresent = False
-                print("Cuvette removed.")
-                self.sendMessage("All","CuvetteAbsent")
+                self.sendMessage("Camera","CuvetteAbsent")
         except Exception as e:
             print(f"Error while reading the sensor: {e}")
             self.stop_event.set()
@@ -69,12 +67,12 @@ class CuvetteSensor(Module):
         Assumes the cuvette is NOT present during calibration.
         """
         if not self.sensor:
-            print("Cannot calibrate: sensor not initialized.")
+            self.sendMessage("All", "CalibrationError", {"message": "Cannot calibrate: sensor not initialized."})
             return
 
         numSamples = self.config['calibration']['samples']
-        print(f"Starting cuvette sensor calibration ({numSamples} samples)...")
-        samples = numSamples
+        self.sendMessage("All", "CalibrationStarted", {"message": f"Starting cuvette sensor calibration ({numSamples} samples)..."})
+        samples = []
         try:
             for _ in range(numSamples):
                 samples.append(self.sensor.value)
@@ -83,8 +81,8 @@ class CuvetteSensor(Module):
             if samples:
                 meanValue = statistics.mean(samples)
                 self.presenceThreshold = meanValue - self.thresholdSpan
-                print(f"Calibration complete. Threshold set to: {self.presenceThreshold:.4f}")
+                self.sendMessage("All", "CalibrationComplete", {"threshold": self.presenceThreshold, "message": "Calibration complete."})
             else:
-                raise ValueError("No samples collected.")
+                self.sendMessage("All", "CalibrationError", {"message": "No samples collected during calibration."})
         except Exception as e:
-            print(f"ERROR during sensor calibration: {e}")
+            self.sendMessage("All", "CalibrationError", {"message": f"An error occurred during calibration: {e}"})
