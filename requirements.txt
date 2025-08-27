@@ -18,7 +18,7 @@ pytz==2025.2
 referencing==0.36.2
 rpds-py==0.26.0
 rpi_ws281x==5.0.0
-scipy==1.16.0
+scipy==1.15.0
 setuptools==80.9.0
 simplejpeg==1.8.2
 six==1.17.0
