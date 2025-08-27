@@ -1,37 +1,37 @@
 # module.py
 import json
 import time
-from threading import Thread, Event
-from queue import Empty, Full
+from threading import Thread,Event
+from queue import Empty,Full
 from communicator import Communicator
 
 class Module:
     """
     Abstract base class for all functional modules.
-    Manages client communication, lifecycle, and message handling
+    Manages client communication,lifecycle,and message handling
     using a decoupled Communicator instance.
     """
-    def __init__(self, name, networkConfig, systemConfig):
+    def __init__(self,name,networkConfig,systemConfig):
         """
         Initializes the Module.
 
         Args:
             name (str): The unique name of the module.
-            networkConfig (dict): Dictionary with network parameters ('address', 'port', etc.).
+            networkConfig (dict): Dictionary with network parameters ('address','port',etc.).
             systemConfig (dict): Dictionary with system-wide parameters.
         """
-        self.name = name
-        self.communicator = Communicator(commType="client", name=self.name, config=networkConfig)
-        self.stopEvent = Event()
+        self.name               = name
+        self.communicator       = Communicator(commType="client",name=self.name,config=networkConfig)
+        self.stopEvent          = Event()
         self.communicatorThread = None
-        self.queueTimeout = systemConfig.get("module_message_queue_timeout_s", 0.1)
+        self.queueTimeout       = systemConfig.get("module_message_queue_timeout_s",0.1)
 
     def run(self):
         """
         Starts the module's main thread and message loops.
         """
         print(f"Module '{self.name}' starting.")
-        self.communicatorThread = Thread(target=self.communicator.run, args=(self.stopEvent,))
+        self.communicatorThread = Thread(target=self.communicator.run,args=(self.stopEvent,))
         self.communicatorThread.start()
 
         self.onStart()
@@ -49,9 +49,9 @@ class Module:
         """
         while not self.stopEvent.is_set():
             try:
-                message = self.communicator.incomingQueue.get(block=True, timeout=self.queueTimeout)
+                message = self.communicator.incomingQueue.get(block=True,timeout=self.queueTimeout)
 
-                if message.get("Message", {}).get("type") == "Stop":
+                if message.get("Message",{}).get("type") == "Stop":
                     print(f"Module '{self.name}' received stop signal.")
                     self.stopEvent.set()
                     break
@@ -62,18 +62,18 @@ class Module:
             except Empty:
                 continue
     
-    def sendMessage(self, destination, msgType, payload=None):
+    def sendMessage(self,destination,msgType,payload=None):
         """
         Sends a message to the EventManager server via the outgoingQueue.
         This method is thread-safe.
         """
         message = {
-            "Sender": self.name,
-            "Destination": destination,
-            "Message": {
-                "type": msgType,
-                "payload": payload if payload is not None else {}
-            }
+            "Sender"      : self.name,
+            "Destination" : destination,
+            "Message"     : {
+                                "type"    : msgType,
+                                "payload" : payload if payload is not None else {}
+                            }
         }
         try:
             self.communicator.outgoingQueue.put(message)
@@ -85,11 +85,11 @@ class Module:
     def onStart(self):
         """
         Called once when the module starts.
-        Useful for initializing hardware, etc.
+        Useful for initializing hardware,etc.
         """
         pass
 
-    def handleMessage(self, message):
+    def handleMessage(self,message):
         """
         Called whenever a message arrives from the server.
         Module-specific logic goes here.
@@ -99,6 +99,6 @@ class Module:
     def onStop(self):
         """
         Called before the module terminates.
-        Useful for cleaning up resources (e.g., GPIO pins, files).
+        Useful for cleaning up resources (e.g.,GPIO pins,files).
         """
         pass

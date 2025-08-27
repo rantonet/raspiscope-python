@@ -13,12 +13,12 @@ class Analysis(Module):
     Class for spectrogram analysis.
     Inherits from the base Module class.
     """
-    def __init__(self, config, networkConfig, systemConfig):
-        super().__init__("Analysis", networkConfig, systemConfig)
-        self.config = config
+    def __init__(self,config,networkConfig,systemConfig):
+        super().__init__("Analysis",networkConfig,systemConfig)
+        self.config               = config
         self.referenceSpectraPath = self.config['reference_spectra_path']
-        self.toleranceNm = self.config['tolerance_nm']
-        self.referenceSpectra = None
+        self.toleranceNm          = self.config['tolerance_nm']
+        self.referenceSpectra     = None
 
     def onStart(self):
         """
@@ -27,7 +27,7 @@ class Analysis(Module):
         """
         try:
             self.referenceSpectra = pandas.read_csv(self.referenceSpectraPath)
-            self.referenceSpectra.set_index('wavelength', inplace=True)
+            self.referenceSpectra.set_index('wavelength',inplace=True)
             self.sendMessage("All",
                              "AnalysisInitialized",
                              {
@@ -54,15 +54,15 @@ class Analysis(Module):
                              }
                             )
 
-    def handleMessage(self, message):
+    def handleMessage(self,message):
         """
         Handles incoming messages.
         """
-        msgType = message.get("Message", {}).get("type")
-        payload = message.get("Message", {}).get("payload", {})
+        msgType = message.get("Message",{}).get("type")
+        payload = message.get("Message",{}).get("payload",{})
 
         if msgType == "Analyze":
-            self.sendMessage("All", "AnalysisRequested", {"status": "received"})
+            self.sendMessage("All","AnalysisRequested",{"status": "received"})
             if self.referenceSpectra is None:
                 self.sendMessage("All",
                                  "AnalysisError",
@@ -76,15 +76,15 @@ class Analysis(Module):
             if imageB64:
                 # Decode the image from Base64
                 imgBytes = base64.b64decode(imageB64)
-                imgNp = numpy.frombuffer(imgBytes, dtype=numpy.uint8)
-                imageData = cv2.imdecode(imgNp, cv2.IMREAD_COLOR)
+                imgNp = numpy.frombuffer(imgBytes,dtype=numpy.uint8)
+                imageData = cv2.imdecode(imgNp,cv2.IMREAD_COLOR)
 
                 # Start analysis in a separate thread to avoid blocking
-                analysisThread = Thread(target=self.performAnalysis, args=(imageData,))
+                analysisThread = Thread(target=self.performAnalysis,args=(imageData,))
                 analysisThread.start()
             else:
-                self.sendMessage("All", "AnalysisError", {"message": "'Analyze' command received without image data."})
-    def performAnalysis(self, imageData):
+                self.sendMessage("All","AnalysisError",{"message": "'Analyze' command received without image data."})
+    def performAnalysis(self,imageData):
         """
         Performs a complete analysis of a spectroscopic absorption image
         by orchestrating the four phases of the analysis pipeline.
@@ -102,15 +102,15 @@ class Analysis(Module):
             peaksIndices = self.detectAbsorbanceValleys(intensityProfile)
             
             # Phase 3: Comparison with reference spectra
-            results = self.compareWithReferences(peaksIndices, intensityProfile)
+            results = self.compareWithReferences(peaksIndices,intensityProfile)
 
             # Phase 4: Sending results
             self.sendAnalysisResults(results)
 
         except Exception as e:
-            self.sendMessage("All", "AnalysisError", {"error": str(e)})
+            self.sendMessage("All","AnalysisError",{"error": str(e)})
 
-    def extractSpectrogramProfile(self, imageData):
+    def extractSpectrogramProfile(self,imageData):
         """
         Extracts and pre-processes the 1D intensity profile from a 2D image.
         
@@ -121,21 +121,21 @@ class Analysis(Module):
             numpy.ndarray: The 1D intensity profile.
         """
         # Defining a Region of Interest (ROI) centered on the image
-        height, width, _ = imageData.shape
+        height,width,_ = imageData.shape
         roiHeight = 20 # Example: a central band of 20 pixels
         yStart = int(height / 2) - int(roiHeight / 2)
         yEnd = yStart + roiHeight
         roi = imageData
 
         # Converting the ROI to grayscale for intensity analysis
-        roiGray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        roiGray = cv2.cvtColor(roi,cv2.COLOR_BGR2GRAY)
         
         # Calculating the 1D intensity profile by averaging along the rows
-        intensityProfile = numpy.mean(roiGray, axis=0)
+        intensityProfile = numpy.mean(roiGray,axis=0)
         
         return intensityProfile
         
-    def detectAbsorbanceValleys(self, intensityProfile):
+    def detectAbsorbanceValleys(self,intensityProfile):
         """
         Detects valleys in the intensity profile by inverting the signal
         and finding peaks.
@@ -146,21 +146,21 @@ class Analysis(Module):
         Returns:
             numpy.ndarray: The indices of the detected peaks (original valleys).
         """
-        # To detect valleys with find_peaks, we invert the signal.
+        # To detect valleys with find_peaks,we invert the signal.
         # Maximum absorption corresponds to the minimum intensity.
         invertedProfile = numpy.max(intensityProfile) - intensityProfile
 
-        # Finds peaks in the inverted profile, which correspond to the original valleys.
+        # Finds peaks in the inverted profile,which correspond to the original valleys.
         # The parameters are crucial for filtering noise.
-        peaksIndices, _ = find_peaks(
-            invertedProfile, 
-            height=numpy.mean(invertedProfile) + numpy.std(invertedProfile) / 2, # Dynamic threshold
+        peaksIndices,_ = find_peaks(
+            invertedProfile,
+            height=numpy.mean(invertedProfile) + numpy.std(invertedProfile) / 2,# Dynamic threshold
             distance=5 # Minimum distance between peaks (in pixels)
         )
         
         return peaksIndices
 
-    def compareWithReferences(self, peaksIndices, intensityProfile):
+    def compareWithReferences(self,peaksIndices,intensityProfile):
         """
         Compares detected peaks with the reference spectra and compiles the results.
         
@@ -183,14 +183,14 @@ class Analysis(Module):
 
         for peakIdx in peaksIndices:
             # Example: pixel to wavelength conversion (assuming linear calibration)
-            pixelToNmFactor = 0.5 # nm per pixel, to be calibrated
+            pixelToNmFactor = 0.5 # nm per pixel,to be calibrated
             estimatedWavelengthNm = peakIdx * pixelToNmFactor + 400 # Example offset
             
             # Comparison with reference data using numpy.isclose for tolerance
-            for _, row in self.referenceSpectra.iterrows():
+            for _,row in self.referenceSpectra.iterrows():
                 refWavelength = row['wavelength']
                 
-                if numpy.isclose(estimatedWavelengthNm, refWavelength, atol=self.toleranceNm):
+                if numpy.isclose(estimatedWavelengthNm,refWavelength,atol=self.toleranceNm):
                     substance = row['substance']
                     if substance not in identifiedSubstances:
                         print(f"Substance '{substance}' identified! Wavelength: {estimatedWavelengthNm:.2f} nm.")
@@ -212,12 +212,12 @@ class Analysis(Module):
         
         return results
 
-    def sendAnalysisResults(self, results):
+    def sendAnalysisResults(self,results):
         """
         Sends the final analysis results message.
         
         Args:
             results (dict): The dictionary of analysis results.
         """
-        self.sendMessage("All", "AnalysisComplete", results)
+        self.sendMessage("All","AnalysisComplete",results)
         print("Analysis complete and results sent.")

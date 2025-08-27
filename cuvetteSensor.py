@@ -1,5 +1,5 @@
 import time
-from gpiozero import InputDevice, GPIOZeroError
+from gpiozero import InputDevice,GPIOZeroError
 from threading import Thread
 from module import Module
 import statistics
@@ -9,15 +9,15 @@ class CuvetteSensor(Module):
     Detects the presence of the cuvette using a Hall effect sensor.
     Inherits from the base Module class.
     """
-    def __init__(self, config, networkConfig, systemConfig):
-        super().__init__("CuvetteSensor", networkConfig, systemConfig)
-        self.config = config
-        self.inputPin = self.config['pin']
-        self.sensor = None
+    def __init__(self,config,networkConfig,systemConfig):
+        super().__init__("CuvetteSensor",networkConfig,systemConfig)
+        self.config            = config
+        self.inputPin          = self.config['pin']
+        self.sensor            = None
         self.presenceThreshold = 0
-        self.thresholdSpan = self.config['calibration']['threshold_span']
-        self.pollInterval = self.config['poll_interval_s']
-        self.isPresent = False
+        self.thresholdSpan     = self.config['calibration']['threshold_span']
+        self.pollInterval      = self.config['poll_interval_s']
+        self.isPresent         = False
 
     def onStart(self):
         """
@@ -48,17 +48,17 @@ class CuvetteSensor(Module):
         Checks the sensor value and sends a signal if the state changes.
         """
         try:
-            currentValue = self.sensor.value
+            currentValue     = self.sensor.value
             currentlyPresent = currentValue < self.presenceThreshold
 
             if currentlyPresent and not self.isPresent:
                 self.isPresent = True
                 print("Cuvette inserted.")
-                self.sendMessage("All", "CuvettePresent")
+                self.sendMessage("All","CuvettePresent")
             elif not currentlyPresent and self.isPresent:
                 self.isPresent = False
                 print("Cuvette removed.")
-                self.sendMessage("All", "CuvetteAbsent")
+                self.sendMessage("All","CuvetteAbsent")
         except Exception as e:
             print(f"Error while reading the sensor: {e}")
             self.stop_event.set()

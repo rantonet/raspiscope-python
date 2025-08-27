@@ -11,27 +11,27 @@ from configLoader import loadConfig
 def main():
     """
     Main entry point of the application.
-    Loads the configuration, instantiates all modules, and starts the EventManager.
+    Loads the configuration,instantiates all modules,and starts the EventManager.
     """
     config = loadConfig()
 
     try:
         # Instantiation of modules with parameters from the configuration
         cameraModule = Camera(
-            config=config.get('camera', {})
+            config=config.get('camera',{})
         )
         cuvetteSensorModule = CuvetteSensor(
-            input_pin=config.get('cuvette_sensor', {}).get('input_pin')
+            input_pin=config.get('cuvette_sensor',{}).get('input_pin')
         )
         lightSourceModule = LightSource(
-            pin=config.get('light_source', {}).get('pin'),
-            dma=config.get('light_source', {}).get('dma', 10), # Default value
-            brightness=config.get('light_source', {}).get('brightness', 0.8), # Default value
-            pwm_channel=config.get('light_source', {}).get('pwm_channel', 0) # Default value
+            pin=config.get('light_source',{}).get('pin'),
+            dma=config.get('light_source',{}).get('dma',10),# Default value
+            brightness=config.get('light_source',{}).get('brightness',0.8),# Default value
+            pwm_channel=config.get('light_source',{}).get('pwm_channel',0) # Default value
         )
         analysisModule = Analysis(
-            reference_spectra_path=config.get('analysis', {}).get('reference_spectra_path'),
-            tolerance_nm=config.get('analysis', {}).get('tolerance_nm', 10) # Default value
+            reference_spectra_path=config.get('analysis',{}).get('reference_spectra_path'),
+            tolerance_nm=config.get('analysis',{}).get('tolerance_nm',10) # Default value
         )
 
         # List of modules to pass to the EventManager

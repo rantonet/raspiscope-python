@@ -11,8 +11,8 @@ class Camera(Module):
     Manages the PiCamera.
     Inherits from the base Module class.
     """
-    def __init__(self, config, networkConfig, systemConfig):
-        super().__init__("Camera", networkConfig, systemConfig)
+    def __init__(self,config,networkConfig,systemConfig):
+        super().__init__("Camera",networkConfig,systemConfig)
         self.camera = None
         self.config = config
 
@@ -24,7 +24,7 @@ class Camera(Module):
             self.camera = Picamera2()
             # La risoluzione viene letta direttamente dalla configurazione iniettata
             resolution = tuple(self.config['resolution'])
-            camConfig = self.camera.create_still_configuration({"size": resolution})
+            camConfig  = self.camera.create_still_configuration({"size": resolution})
             self.camera.configure(camConfig)
             self.camera.start()
             print(f"Camera started and configured with resolution {resolution}.")
@@ -32,15 +32,15 @@ class Camera(Module):
             print(f"ERROR: Could not initialize camera: {e}")
             self.camera = None
 
-    def handleMessage(self, message):
+    def handleMessage(self,message):
         """
         Handles incoming messages.
         """
         if not self.camera:
-            print("Camera not available, ignoring command.")
+            print("Camera not available,ignoring command.")
             return
 
-        msgType = message.get("Message", {}).get("type")
+        msgType = message.get("Message",{}).get("type")
 
         if msgType == "CuvettePresent":
             print("Received cuvette present signal. Taking a picture.")
@@ -57,7 +57,7 @@ class Camera(Module):
         Takes a picture and sends it to the Analysis module.
         """
         if not self.camera:
-            print("Cannot take picture, camera not initialized.")
+            print("Cannot take picture,camera not initialized.")
             return
 
         try:
@@ -66,11 +66,11 @@ class Camera(Module):
             imageArray = self.camera.capture_array()
 
             # Encode the image in JPG format and then in Base64
-            _, buffer = cv2.imencode('.jpg', imageArray)
+            _,buffer = cv2.imencode('.jpg',imageArray)
             imageB64 = base64.b64encode(buffer).decode('utf-8')
 
             payload = {"image": imageB64}
-            self.sendMessage("Analysis", "Analyze", payload)
+            self.sendMessage("Analysis","Analyze",payload)
             print("Picture taken and sent for analysis.")
 
         except Exception as e:
@@ -82,9 +82,9 @@ class Camera(Module):
         Placeholder for the actual calibration logic.
         """
         print("Starting camera calibration...")
-        # TODO: Implement calibration logic (e.g., white balance, exposure).
+        # TODO: Implement calibration logic (e.g.,white balance,exposure).
         time.sleep(2) # Simulate calibration time
-        self.sendMessage("All", "CameraCalibrated", {"status": "success"})
+        self.sendMessage("All","CameraCalibrated",{"status": "success"})
         print("Camera calibration complete.")
 
     def onStop(self):
