@@ -1,0 +1,10 @@
+@startuml Boot activity
+start
+:Load configuration;
+:Set the camera
+:Set the light
+:Check for spectrographs updates
+:Calibrate the camera and the light
+:Calibrate Cuvette Presence Sequence
+stop
+@enduml
