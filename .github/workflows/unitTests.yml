@@ -24,8 +24,8 @@ jobs:
         path: .
     - name: Install Dependencies
       run: |
-        "${{ github.event.repository.name }}"/bin/python -m pip install --upgrade pip
+        ${{ github.event.repository.name }}/bin/python -m pip install --upgrade pip
         pip install -r "${{ github.event.repository.name }}"/requirements.txt
     - name: Run Unit Tests
       run: |
-        "${{ github.event.repository.name }}"/bin/python -m unittest discover tests/unit
+        ${{ github.event.repository.name }}/bin/python -m unittest discover tests/unit
