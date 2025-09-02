@@ -44,7 +44,7 @@ jobs:
         source .venv/bin/activate
         
         # Aggiorna pip
-        bin/python -m pip install --upgrade pip
+        python -m pip install --upgrade pip
         
         # Installa le dipendenze solo se la cache non è stata trovata
         if [ "${{ steps.cache-venv.outputs.cache-hit }}" != "true" ]; then
@@ -56,4 +56,4 @@ jobs:
         
         # Esegui i test usando il python del venv
         echo "Avvio i test..."
-        bin/python -m unittest discover tests/unit
+        python -m unittest discover tests/unit
