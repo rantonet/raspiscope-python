@@ -7,7 +7,7 @@ import tempfile
 from multiprocessing import Process, Event
 from queue import Empty
 from unittest.mock import MagicMock, patch, call
-import numpy as np
+import numpy
 
 # Import main modules
 from eventManager import EventManager, MODULE_MAP
