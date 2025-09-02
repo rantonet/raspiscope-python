@@ -9,16 +9,17 @@ jobs:
   build:
     runs-on: self-hosted
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
     - name: Install System Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y libcap-dev libcamera-dev
     - name: Crea venv, installa dipendenze e avvia script
       run: |
-        python3 -m venv .venv
-        source .venv/bin/activate
+        python3 -m venv "${{ github.event.repository.name }}"
+        source "${{ github.event.repository.name }}"/bin/activate
+        cd "${{ github.event.repository.name }}"
+    - name: Checkout Code
+      uses: actions/checkout@v4
     - name: Install Dependencies
       run: |
         ./bin/python -m pip install --upgrade pip
