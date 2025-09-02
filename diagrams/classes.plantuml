@@ -1,0 +1,17 @@
+@startuml Classes
+interface module{}
+class comunication{}
+class eventManager{}
+class analysis{}
+class camera{}
+class configLoader{}
+class cuvetteSensor{}
+class lightSource{}
+class logger{}
+
+module <|.. analysis
+module <|.. camera
+module <|.. cuvetteSensor
+module <|.. lightSource
+module <|.. logger
+@enduml
