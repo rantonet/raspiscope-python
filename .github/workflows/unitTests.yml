@@ -13,19 +13,18 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libcap-dev libcamera-dev
-    - name: Crea venv, installa dipendenze e avvia script
+    - name: Create virtual environment
       run: |
         python -m venv "${{ github.event.repository.name }}"
         source ${{ github.event.repository.name }}/bin/activate
-        cd ${{ github.event.repository.name }}
     - name: Checkout Code
       uses: actions/checkout@v4
       with:
         path: .
     - name: Install Dependencies
       run: |
-        bin/python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        ${{ github.event.repository.name }}/bin/python -m pip install --upgrade pip
+        pip install -r ${{ github.event.repository.name }}/requirements.txt
     - name: Run Unit Tests
       run: |
-        bin/python -m unittest discover tests/unit
+        ${{ github.event.repository.name }}/bin/python -m unittest discover tests/unit
