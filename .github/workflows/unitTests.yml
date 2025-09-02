@@ -45,11 +45,12 @@ jobs:
         
         # Aggiorna pip
         python -m pip install --upgrade pip
+        python -m pip install --user pur
         
         # Installa le dipendenze solo se la cache non è stata trovata
         if [ "${{ steps.cache-venv.outputs.cache-hit }}" != "true" ]; then
           echo "Cache non trovata, installo le dipendenze..."
-          pip install -r requirements.txt
+          pur -r requirements.txt
         else
           echo "Cache trovata, salto l'installazione delle dipendenze."
         fi
