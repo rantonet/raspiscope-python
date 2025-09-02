@@ -1,48 +1,58 @@
 import json
 import sys
 
-_config = None
-
-def loadConfig(configPath="config.json"):
+class ConfigLoader:
     """
-    Carica,analizza e restituisce la configurazione da un file JSON.
-    Il risultato viene memorizzato nella cache per evitare letture multiple.
-
-    Args:
-        config_path (str): Il percorso del file di configurazione JSON.
-
-    Returns:
-        dict: Un dizionario che rappresenta la configurazione.
-
-    Raises:
-        SystemExit: Se il file non viene trovato,non è un JSON valido,
-                    o mancano chiavi essenziali.
+    Loads, parses, and manages the configuration from a JSON file.
+    The result is stored as an instance attribute to avoid
+    multiple reads.
     """
-    global _config
-    if _config is not None:
-        return _config
+    def __init__(self, config_path="config.json"):
+        """
+        Initializes the configuration loader.
 
-    try:
-        with open(configPath,'r') as f:
-            configData = json.load(f)
-    except FileNotFoundError:
-        print(f"ERRORE CRITICO: Il file di configurazione '{configPath}' non è stato trovato.",file=sys.stderr)
-        sys.exit(1) # Termina l'applicazione con un codice di errore
-    except json.JSONDecodeError as e:
-        print(f"ERRORE CRITICO: Il file di configurazione '{configPath}' non è un file JSON valido.",file=sys.stderr)
-        print(f"Dettagli dell'errore: {e}",file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"ERRORE CRITICO: Si è verificato un errore imprevisto durante la lettura di '{configPath}'.",file=sys.stderr)
-        print(f"Dettagli: {e}",file=sys.stderr)
-        sys.exit(1)
+        Args:
+            config_path (str): The path to the JSON configuration file.
+        """
+        self._config_path = config_path
+        self._config = None
+        self._load()
 
-    # Validazione di base per la presenza di chiavi principali
-    requiredKeys = ["network","system","modules"]
-    for key in requiredKeys:
-        if key not in configData:
-            print(f"ERRORE CRITICO: La chiave obbligatoria '{key}' manca nel file di configurazione.",file=sys.stderr)
+    def _load(self):
+        """
+        Private method to load and validate the configuration.
+        Terminates the application in case of critical errors, maintaining
+        the original logic.
+        """
+        try:
+            with open(self._config_path, 'r') as f:
+                config_data = json.load(f)
+        except FileNotFoundError:
+            print(f"CRITICAL ERROR: The configuration file '{self._config_path}' was not found.", file=sys.stderr)
+            sys.exit(1)
+        except json.JSONDecodeError as e:
+            print(f"CRITICAL ERROR: The configuration file '{self._config_path}' is not a valid JSON file.", file=sys.stderr)
+            print(f"Error details: {e}", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"CRITICAL ERROR: An unexpected error occurred while reading '{self._config_path}'.", file=sys.stderr)
+            print(f"Details: {e}", file=sys.stderr)
             sys.exit(1)
 
-    _config = configData
-    return _config
+        # Validation for the presence of main keys
+        required_keys = ["network", "system", "modules"]
+        for key in required_keys:
+            if key not in config_data:
+                print(f"CRITICAL ERROR: The required key '{key}' is missing from the configuration file.", file=sys.stderr)
+                sys.exit(1)
+
+        self._config = config_data
+
+    def get_config(self):
+        """
+        Returns the loaded configuration dictionary.
+
+        Returns:
+            dict: The complete configuration.
+        """
+        return self._config

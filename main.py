@@ -13,7 +13,8 @@ def main():
     Main entry point of the application.
     Loads the configuration,instantiates all modules,and starts the EventManager.
     """
-    config = loadConfig()
+    config_loader = ConfigLoader(config_path="config_test.json")
+    config = config_loader.get_config()
 
     try:
         # Instantiation of modules with parameters from the configuration
