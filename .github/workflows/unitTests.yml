@@ -25,6 +25,7 @@ jobs:
         path: .
     - name: Install requirements
       run: |
+        cd ${{ github.event.repository.name }}
         bin/python -m pip install -r requirements.txt
     - name: Run Unit Tests
       run: |
