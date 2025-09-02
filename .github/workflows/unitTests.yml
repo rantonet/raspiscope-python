@@ -17,14 +17,12 @@ jobs:
       run: |
         python -m venv "${{ github.event.repository.name }}"
         source ${{ github.event.repository.name }}/bin/activate
+        ${{ github.event.repository.name }}/bin/python -m pip install --upgrade pip
+        pip install -r ${{ github.event.repository.name }}/requirements.txt
     - name: Checkout Code
       uses: actions/checkout@v4
       with:
         path: .
-    - name: Install Dependencies
-      run: |
-        ${{ github.event.repository.name }}/bin/python -m pip install --upgrade pip
-        pip install -r ${{ github.event.repository.name }}/requirements.txt
     - name: Run Unit Tests
       run: |
         ${{ github.event.repository.name }}/bin/python -m unittest discover tests/unit
