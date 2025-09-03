@@ -19,6 +19,7 @@ jobs:
         source .venv/bin/activate
         .venv/bin/python -m pip install --upgrade pip
         .venv/bin/python -m pip install pur
+        .venv/bin/python -m pip install rpi-libcamera
         .venv/bin/python -m pip install -r requirements.txt
         pur -r requirements.txt
         echo "Avvio i test..."
