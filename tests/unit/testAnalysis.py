@@ -1,12 +1,12 @@
 import unittest
-from unittest.mock import MagicMock, patch, call
-import numpy as np
-import pandas as pd
-from analysis import Analysis
-from threading import Thread
 import cv2
 import base64
-from queue import Queue
+import numpy       as np
+import pandas      as pd
+from unittest.mock import MagicMock, patch, call
+from analysis      import Analysis
+from threading     import Thread
+from queue         import Queue
 
 class TestAnalysis(unittest.TestCase):
     def setUp(self):

@@ -1,10 +1,8 @@
 name: Python Unit Tests
 on:
   workflow_dispatch:
-  push:
-    branches: [ refactor ]
   pull_request:
-    branches: [ main ]
+    branches: [ tests ]
 jobs:
   build-and-test:
     runs-on: self-hosted
