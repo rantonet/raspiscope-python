@@ -1,60 +1,25 @@
-
-
 name: Python Unit Tests
-
 on:
   push:
     branches: [ refactor ]
   pull_request:
     branches: [ main ]
-
 jobs:
   build-and-test:
     runs-on: self-hosted
-
     steps:
-    # 1. Installa le dipendenze di sistema, se necessario
     - name: Install System Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y libcap-dev libcamera-dev
-
-    # 2. Fa il checkout del codice come primo passo
     - name: Checkout Code
       uses: actions/checkout@v4
-
-    # 3. Imposta la cache per il venv per velocizzare le esecuzioni future
-    - name: Set up venv Cache
-      id: cache-venv
-      uses: actions/cache@v4
-      with:
-        # Percorso della cartella da salvare in cache
-        path: .venv
-        # Chiave unica: la cache viene invalidata solo se requirements.txt cambia
-        key: ${{ runner.os }}-venv-${{ hashFiles('**/requirements.txt') }}
-
-    # 4. Crea il venv, installa le dipendenze (se serve) e lancia i test
     - name: Install Dependencies and Run Tests
       run: |
-        # Usa python3 che è l'alias standard su Raspberry Pi OS
         python3 -m venv .venv
-        
-        # Attiva il venv. Da qui in poi, i comandi `python` e `pip`
-        # useranno l'ambiente virtuale.
         source .venv/bin/activate
-        
-        # Aggiorna pip
         .venv/bin/python -m pip install --upgrade pip
         .venv/bin/python -m pip install pur
-        
-        # Installa le dipendenze solo se la cache non è stata trovata
-        if [ "${{ steps.cache-venv.outputs.cache-hit }}" != "true" ]; then
-          echo "Cache non trovata, installo le dipendenze..."
-          pur -r requirements.txt
-        else
-          echo "Cache trovata, salto l'installazione delle dipendenze."
-        fi
-        
-        # Esegui i test usando il python del venv
+        pur -r requirements.txt
         echo "Avvio i test..."
         .venv/bin/python -m unittest discover tests/unit
