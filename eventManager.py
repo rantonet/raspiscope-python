@@ -99,7 +99,12 @@ class EventManager:
 
             if destination == "EventManager":
                 # Handle commands for the EventManager here
-                print(f"Command received for EventManager from {sender}")
+                if message.get("Message",{}).get("type") == "Stop":
+                    print(f"Stop command received from {sender}. Initiating shutdown...")
+                    self._handleShutdown(signal.SIGTERM, None)
+                else:
+                    # Handle other commands for the EventManager here
+                    print(f"Command '{msg_type}' received for EventManager from {sender}")
             else:
                 # Put into the outgoing queue for sending
                 # The tuple (destination,message) is interpreted by the server's consumer
