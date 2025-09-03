@@ -1,23 +1,21 @@
 import json
 import signal
 from multiprocessing import Process
-from threading import Thread,Event
-from queue import Empty
+from threading       import Thread,Event
+from queue           import Empty
 
-# Import delle classi dei moduli e del caricatore di configurazione
-from communicator import Communicator
-from configLoader import loadConfig
-from lightSource import LightSource
+from communicator  import Communicator
+from configLoader  import loadConfig
+from lightSource   import LightSource
 from cuvetteSensor import CuvetteSensor
-from camera import Camera
-from analysis import Analysis
+from camera        import Camera
+from analysis      import Analysis
 
-# Mappatura dai nomi nel config alle classi Python
 MODULE_MAP = {
-    "lightSource": LightSource,
-    "cuvetteSensor": CuvetteSensor,
-    "camera": Camera,
-    "analysis": Analysis
+    "lightSource"   : LightSource,
+    "cuvetteSensor" : CuvetteSensor,
+    "camera"        : Camera,
+    "analysis"      : Analysis
 }
 
 class EventManager:
@@ -34,8 +32,8 @@ class EventManager:
         networkConfig         = self.config['network']
         self.communicator     = Communicator("server",name=self.name,config=networkConfig)
         self.modules          = self._instantiateModules()
-        self.runningProcesses = []
         self._stopEvent       = Event()
+        self.runningProcesses = []
 
     def _instantiateModules(self):
         """
@@ -51,7 +49,7 @@ class EventManager:
                 if name in MODULE_MAP:
                     ModuleClass = MODULE_MAP[name]
                     print(f"Instantiating module: {name}")
-                    # Iniezione delle dipendenze
+                    # Dependencies injection
                     moduleInstance = ModuleClass(
                         config=modConfig,
                         networkConfig=networkConfig,
@@ -101,7 +99,12 @@ class EventManager:
 
             if destination == "EventManager":
                 # Handle commands for the EventManager here
-                print(f"Command received for EventManager from {sender}")
+                if message.get("Message",{}).get("type") == "Stop":
+                    print(f"Stop command received from {sender}. Initiating shutdown...")
+                    self._handleShutdown(signal.SIGTERM, None)
+                else:
+                    # Handle other commands for the EventManager here
+                    print(f"Command '{msg_type}' received for EventManager from {sender}")
             else:
                 # Put into the outgoing queue for sending
                 # The tuple (destination,message) is interpreted by the server's consumer
