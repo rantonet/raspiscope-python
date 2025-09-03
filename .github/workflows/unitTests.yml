@@ -17,11 +17,10 @@ jobs:
     - name: Install Dependencies and Run Tests
       run: |
         python3 -m venv .venv
-        cd .venv
-        source bin/activate
-        bin/python -m pip install --upgrade pip
-        bin/python -m pip install pur
-        bin/python -m pip install -r requirements.txt
+        source .venv/bin/activate
+        .venv/bin/python -m pip install --upgrade pip
+        .venv/bin/python -m pip install pur
+        .venv/bin/python -m pip install -r requirements.txt
         pur -r requirements.txt
         echo "Avvio i test..."
-        bin/python -m unittest discover tests/unit
+        .venv/bin/python -m unittest discover tests/unit
