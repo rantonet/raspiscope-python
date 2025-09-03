@@ -5,6 +5,7 @@ gpiozero==2.0.1
 jsonschema==4.25.0
 jsonschema-specifications==2025.4.1
 libarchive-c==5.3
+libcamera==0.5.0
 numpy==2.2.6
 opencv-python==4.12.0.88
 pandas==2.3.1
@@ -18,6 +19,7 @@ pytz==2025.2
 referencing==0.36.2
 rpds-py==0.26.0
 rpi_ws281x==5.0.0
+rpi-libcamera==0.1a10
 scipy==1.15.0
 setuptools==80.9.0
 simplejpeg==1.8.2
