@@ -1,56 +1,30 @@
-import json
-import time
-from multiprocessing import Process
-from analysis import Analysis
+import sys
 from eventManager import EventManager
-from camera import Camera
-from cuvetteSensor import CuvetteSensor
-from lightSource import LightSource
-from configLoader import loadConfig
+from configLoader import ConfigLoader # <-- Modificato: Importa ConfigLoader
 
 def main():
     """
     Main entry point of the application.
-    Loads the configuration,instantiates all modules,and starts the EventManager.
+    Loads the configuration and starts the EventManager,
+    which will handle module instantiation and orchestration.
     """
-    config_loader = ConfigLoader(config_path="config_test.json")
-    config = config_loader.get_config()
+    config_path = "config.json"
+    if len(sys.argv) > 1:
+        config_path = sys.argv[1]
 
     try:
-        # Instantiation of modules with parameters from the configuration
-        cameraModule = Camera(
-            config=config.get('camera',{})
-        )
-        cuvetteSensorModule = CuvetteSensor(
-            input_pin=config.get('cuvette_sensor',{}).get('input_pin')
-        )
-        lightSourceModule = LightSource(
-            pin=config.get('light_source',{}).get('pin'),
-            dma=config.get('light_source',{}).get('dma',10),# Default value
-            brightness=config.get('light_source',{}).get('brightness',0.8),# Default value
-            pwm_channel=config.get('light_source',{}).get('pwm_channel',0) # Default value
-        )
-        analysisModule = Analysis(
-            reference_spectra_path=config.get('analysis',{}).get('reference_spectra_path'),
-            tolerance_nm=config.get('analysis',{}).get('tolerance_nm',10) # Default value
-        )
+        # L'instanziazione dei moduli viene delegata all'EventManager.
+        # Il main si occupa solo di avviare l'EventManager con il file
+        # di configurazione corretto.
+        print(f"Loading configuration from '{config_path}'...")
+        event_manager = EventManager(configPath=config_path)
+        event_manager.run()
 
-        # List of modules to pass to the EventManager
-        modulesToRun = [
-            cameraModule,
-            cuvetteSensorModule,
-            lightSourceModule,
-            analysisModule
-        ]
-
-        # Creation and startup of the EventManager
-        eventManager = EventManager(modules=modulesToRun)
-        eventManager.run()
-
-    except KeyError as e:
-        print(f"Error: missing configuration key in 'config.json': {e}")
     except Exception as e:
-        print(f"An unexpected error occurred during initialization: {e}")
+        # Gli errori critici di configurazione (es. file non trovato)
+        # vengono già gestiti da ConfigLoader, che termina l'applicazione.
+        # Questa clausola cattura altre eccezioni impreviste.
+        print(f"An unexpected error occurred during initialization: {e}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()

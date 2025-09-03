@@ -1,21 +1,23 @@
 import json
 import signal
 from multiprocessing import Process
-from threading       import Thread,Event
-from queue           import Empty
+from threading import Thread,Event
+from queue import Empty
 
-from communicator  import Communicator
-from configLoader  import loadConfig
-from lightSource   import LightSource
+# Import delle classi dei moduli e del caricatore di configurazione
+from communicator import Communicator
+from configLoader import ConfigLoader  # <-- Modificato: Importa ConfigLoader
+from lightSource import LightSource
 from cuvetteSensor import CuvetteSensor
-from camera        import Camera
-from analysis      import Analysis
+from camera import Camera
+from analysis import Analysis
 
+# Mappatura dai nomi nel config alle classi Python
 MODULE_MAP = {
-    "lightSource"   : LightSource,
-    "cuvetteSensor" : CuvetteSensor,
-    "camera"        : Camera,
-    "analysis"      : Analysis
+    "lightSource": LightSource,
+    "cuvetteSensor": CuvetteSensor,
+    "camera": Camera,
+    "analysis": Analysis
 }
 
 class EventManager:
@@ -27,13 +29,18 @@ class EventManager:
         """
         Initializes the EventManager.
         """
-        self.config           = loadConfig(configPath)
+        # --- Sezione Aggiornata ---
+        # Usa la classe ConfigLoader per caricare la configurazione.
+        config_loader     = ConfigLoader(configPath)
+        self.config       = config_loader.get_config()
+        # --- Fine Sezione Aggiornata ---
+        
         self.name             = "EventManager"
         networkConfig         = self.config['network']
         self.communicator     = Communicator("server",name=self.name,config=networkConfig)
         self.modules          = self._instantiateModules()
-        self._stopEvent       = Event()
         self.runningProcesses = []
+        self._stopEvent       = Event()
 
     def _instantiateModules(self):
         """
@@ -49,7 +56,7 @@ class EventManager:
                 if name in MODULE_MAP:
                     ModuleClass = MODULE_MAP[name]
                     print(f"Instantiating module: {name}")
-                    # Dependencies injection
+                    # Iniezione delle dipendenze
                     moduleInstance = ModuleClass(
                         config=modConfig,
                         networkConfig=networkConfig,
@@ -92,14 +99,14 @@ class EventManager:
             message = self.communicator.incomingQueue.get(timeout=0.1)
             destination = message.get("Destination")
             sender = message.get("Sender")
+            msg_type = message.get("Message", {}).get("type")
 
-            if message.get("Message",{}).get("type") == "register":
+            if msg_type == "register":
                 print(f"Client registration handled: {sender}")
-                return # Registration is handled by the Communicator
+                return  # Registration is handled by the Communicator
 
             if destination == "EventManager":
-                # Handle commands for the EventManager here
-                if message.get("Message",{}).get("type") == "Stop":
+                if msg_type == "Stop":
                     print(f"Stop command received from {sender}. Initiating shutdown...")
                     self._handleShutdown(signal.SIGTERM, None)
                 else:
