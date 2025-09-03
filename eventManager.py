@@ -6,7 +6,7 @@ from queue import Empty
 
 # Import delle classi dei moduli e del caricatore di configurazione
 from communicator import Communicator
-from configLoader import loadConfig
+from configLoader import ConfigLoader  # <-- Modificato: Importa ConfigLoader
 from lightSource import LightSource
 from cuvetteSensor import CuvetteSensor
 from camera import Camera
@@ -29,7 +29,12 @@ class EventManager:
         """
         Initializes the EventManager.
         """
-        self.config           = loadConfig(configPath)
+        # --- Sezione Aggiornata ---
+        # Usa la classe ConfigLoader per caricare la configurazione.
+        config_loader     = ConfigLoader(configPath)
+        self.config       = config_loader.get_config()
+        # --- Fine Sezione Aggiornata ---
+        
         self.name             = "EventManager"
         networkConfig         = self.config['network']
         self.communicator     = Communicator("server",name=self.name,config=networkConfig)
@@ -94,14 +99,19 @@ class EventManager:
             message = self.communicator.incomingQueue.get(timeout=0.1)
             destination = message.get("Destination")
             sender = message.get("Sender")
+            msg_type = message.get("Message", {}).get("type")
 
-            if message.get("Message",{}).get("type") == "register":
+            if msg_type == "register":
                 print(f"Client registration handled: {sender}")
-                return # Registration is handled by the Communicator
+                return  # Registration is handled by the Communicator
 
             if destination == "EventManager":
-                # Handle commands for the EventManager here
-                print(f"Command received for EventManager from {sender}")
+                if msg_type == "Stop":
+                    print(f"Stop command received from {sender}. Initiating shutdown...")
+                    self._handleShutdown(signal.SIGTERM, None)
+                else:
+                    # Handle other commands for the EventManager here
+                    print(f"Command '{msg_type}' received for EventManager from {sender}")
             else:
                 # Put into the outgoing queue for sending
                 # The tuple (destination,message) is interpreted by the server's consumer
