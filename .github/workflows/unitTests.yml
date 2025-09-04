@@ -9,15 +9,19 @@ jobs:
     steps:
     - name: Install System Dependencies
       run: |
+        echo "Installing system dependencies"
         sudo apt-get update
         sudo apt-get install -y libcap-dev libcamera-dev
     - name: Checkout Code
       uses: actions/checkout@v4
     - name: Install Dependencies and Run Tests
       run: |
+        echo "Setting up and starting Python Virtual Environment..." 
         python3 -m venv .venv
         source .venv/bin/activate
+        echo "Upgrading pip..."
         .venv/bin/python -m pip install --upgrade pip
+        echo "Installing requirements..."
         .venv/bin/python -m pip install -r requirements.txt
-        echo "Avvio i test..."
+        echo "Starting tests..."
         .venv/bin/python -m unittest discover tests/unit
