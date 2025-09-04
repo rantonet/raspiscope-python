@@ -1,0 +1,11 @@
+@startuml Camera Main Loop
+start
+while (Stop request received) is (no)
+    :Wait for incoming messages |
+    if (Take Picture Request received) then (yes)
+        :Take picture |
+        :Send picture thru picture event to Analysis module
+    endif
+endwhile (received)
+stop
+@enduml
