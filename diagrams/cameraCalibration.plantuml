@@ -1,7 +1,12 @@
 @startuml Camera Calibration
 start
-while (Calibrated) is (no)
-    :Do calibration
-endwhile (yes)
-end
+while (tests) is (less than 10)
+    :Take picture;
+    :Change ISO
+    :Change sharpness
+    :Change brightness
+    :Check blur
+endwhile (10)
+:Save settings with minimum blur
+stop
 @enduml
