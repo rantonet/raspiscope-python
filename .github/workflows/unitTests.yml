@@ -6,7 +6,7 @@ on:
     branches: [ tests ]
 jobs:
   build-and-test:
-    if: ${{ contains(github.ref, 'refs/heads/tests/') }}
+    if: ${{ contains(github.ref, 'refs/heads/tests') }}
     runs-on: self-hosted
     steps:
     - name: Install System Dependencies
