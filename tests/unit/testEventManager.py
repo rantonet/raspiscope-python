@@ -28,9 +28,11 @@ MOCK_MODULE_MAP = {
 
 def run_event_manager():
     """Funzione target per eseguire EventManager in un processo separato."""
-    # Applica i mock all'interno del nuovo processo
-    with patch('eventManager.loadConfig', return_value=TEST_CONFIG), \
+    # AGGIORNATO: Usa il mock di ConfigLoader invece di loadConfig
+    with patch('eventManager.ConfigLoader') as mock_config_loader, \
          patch.dict('eventManager.MODULE_MAP', MOCK_MODULE_MAP):
+        # Configura l'istanza mock per restituire la configurazione di test
+        mock_config_loader.return_value.get_config.return_value = TEST_CONFIG
         try:
             manager = EventManager("config.json")
             manager.run()

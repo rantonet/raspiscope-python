@@ -26,7 +26,7 @@ def fake_module_run(name, stop_event, messages_to_send, received_messages_queue)
     comm_process.start()
 
     # Attende la connessione
-    time.sleep(1) 
+    time.sleep(1)
 
     # Invia tutti i messaggi in sequenza
     for msg in messages_to_send:
@@ -40,13 +40,16 @@ def fake_module_run(name, stop_event, messages_to_send, received_messages_queue)
             received_messages_queue.put(received_msg)
         except Empty:
             continue
-    
+
     comm_process.join()
 
 def run_event_manager():
     """Funzione target per eseguire l'EventManager in un processo separato."""
-    with patch('eventManager.loadConfig', return_value=TEST_CONFIG), \
+    # AGGIORNATO: Usa il mock di ConfigLoader invece di loadConfig
+    with patch('eventManager.ConfigLoader') as mock_config_loader, \
          patch('eventManager.MODULE_MAP', new={}): # Nessun modulo reale istanziato
+        # Configura l'istanza mock per restituire la configurazione di test
+        mock_config_loader.return_value.get_config.return_value = TEST_CONFIG
         manager = EventManager("config.json")
         manager.run()
 
@@ -96,12 +99,12 @@ class TestCommunicatorEndToEnd(unittest.TestCase):
         m2_proc.start()
 
         # Attende che i messaggi vengano scambiati
-        time.sleep(2) 
+        time.sleep(2)
 
         # 3. Verifica dei messaggi ricevuti
         m1_received_list = [m1_received_q.get() for _ in range(m1_received_q.qsize())]
         m2_received_list = [m2_received_q.get() for _ in range(m2_received_q.qsize())]
-        
+
         # Estrae solo il corpo del messaggio per un confronto più semplice
         m1_payloads = [msg['Message'] for msg in m1_received_list]
         m2_payloads = [msg['Message'] for msg in m2_received_list]
@@ -118,7 +121,7 @@ class TestCommunicatorEndToEnd(unittest.TestCase):
 
         m1_proc.join(timeout=SHUTDOWN_WAIT_TIME)
         m2_proc.join(timeout=SHUTDOWN_WAIT_TIME)
-        
+
         # 5. Verifica la terminazione e il timeout totale
         if m1_proc.is_alive():
             m1_proc.terminate()
@@ -126,11 +129,11 @@ class TestCommunicatorEndToEnd(unittest.TestCase):
         if m2_proc.is_alive():
             m2_proc.terminate()
             self.fail(f"Modulo 2 non è terminato entro {SHUTDOWN_WAIT_TIME} secondi.")
-            
+
         elapsed_time = time.time() - start_time
         if elapsed_time > TOTAL_TIMEOUT:
             self.fail(f"Il test ha superato il timeout totale di {TOTAL_TIMEOUT} secondi (durata: {elapsed_time:.2f}s).")
-            
+
         print(f"Test completato con successo in {elapsed_time:.2f} secondi.")
 
 if __name__ == '__main__':
