@@ -1,12 +1,10 @@
 name: Python Unit Tests
 on:
   workflow_dispatch:
-  create:
   pull_request:
     branches: [ tests ]
 jobs:
   build-and-test:
-#    if: ${{ contains(github.ref, 'refs/heads/tests') }}
     runs-on: self-hosted
     steps:
     - name: Install System Dependencies
