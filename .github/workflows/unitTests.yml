@@ -19,8 +19,8 @@ jobs:
     - name: Install Dependencies and Run Tests
       run: |
         echo "Upgrading pip..."
-        .venv/bin/python -m pip install --upgrade pip
+        python -m pip install --upgrade pip
         echo "Installing requirements..."
-        .venv/bin/python -m pip install -r requirements.txt
+        python -m pip install -r requirements.txt
         echo "Starting tests..."
-        .venv/bin/python -m unittest discover tests/unit
+        python -m unittest discover tests/unit
