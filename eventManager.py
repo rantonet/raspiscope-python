@@ -1,8 +1,8 @@
 import json
 import signal
 from multiprocessing import Process
-from threading import Thread,Event
-from queue import Empty
+from threading       import Thread,Event
+from queue           import Empty
 
 # Import delle classi dei moduli e del caricatore di configurazione
 from communicator import Communicator
