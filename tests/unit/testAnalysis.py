@@ -15,7 +15,7 @@ from eventManager    import EventManager
 from communicator    import Communicator
 from analysis        import Analysis
 from module          import Module
-from unittest.mock   import patch
+from unittest.mock   import patch, MagicMock
 
 # --- Configurazione di Rete e di Sistema per il Test ---
 TEST_CONFIG = {
@@ -24,6 +24,7 @@ TEST_CONFIG = {
     "modules" : {
         "FakeSpectrograms" : {"enabled": True},
         "FakeAnalysis"     : {"enabled": True, "reference_spectra_path": "placeholder", "tolerance_nm": 5},
+        "Logger"           : {"enabled": True}
     }
 }
 
@@ -50,6 +51,7 @@ class FakeSpectrograms(Module):
 MOCK_MODULE_MAP = {
     "FakeSpectrograms": FakeSpectrograms,
     "FakeAnalysis": Analysis,
+    "Logger": MagicMock()
 }
 
 def run_event_manager(config_path):

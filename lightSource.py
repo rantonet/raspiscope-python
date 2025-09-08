@@ -37,9 +37,9 @@ class LightSource(Module):
             )
             self.led.begin()
             self.turnOff() # Ensure the LED is off on startup
-            print("Light source initialized.")
+            self.log("INFO","Light source initialized.")
         except Exception as e:
-            print(f"ERROR: Could not initialize light source. Run as root? Details: {e}")
+            self.log("ERROR",f"Could not initialize light source. Run as root? Details: {e}")
             self.led = None
 
     def handleMessage(self,message):
@@ -48,7 +48,7 @@ class LightSource(Module):
         Acts as a dispatcher that invokes the appropriate methods.
         """
         if not self.led:
-            print("Light source not available,command ignored.")
+            self.log("WARNING","Light source not available,command ignored.")
             return
 
         msgType = message.get("Message",{}).get("type")
@@ -63,12 +63,12 @@ class LightSource(Module):
             if isinstance(newBrightness,int) and 0 <= newBrightness <= 255:
                 self.dim(newBrightness)
             else:
-                print(f"'Dim' command received with invalid payload: {payload}")
+                self.log("WARNING",f"'Dim' command received with invalid payload: {payload}")
         elif msgType == "Calibrate":
             if 'r' in payload and 'g' in payload and 'b' in payload:
                 self.calibrate(payload)
             else:
-                print(f"'Calibrate' command received with incomplete payload: {payload}")
+                self.log("WARNING",f"'Calibrate' command received with incomplete payload: {payload}")
 
     def _calculateColor(self):
         """
@@ -91,7 +91,7 @@ class LightSource(Module):
         Turns the LED on. Emits events before and after the action.
         """
         if not self.led: return
-        print("Turning on light source...")
+        self.log("INFO","Turning on light source...")
         self.sendMessage("All","TurningOn")
 
         finalColor = self._calculateColor()
@@ -100,7 +100,7 @@ class LightSource(Module):
         self.is_on = True
 
         self.sendMessage("All","TurnedOn")
-        print("Light source turned on.")
+        self.log("INFO","Light source turned on.")
 
     def turnOff(self,initial=False):
         """
@@ -111,7 +111,7 @@ class LightSource(Module):
         """
         if not self.led: return
         if not initial:
-            print("Turning off light source...")
+            self.log("INFO","Turning off light source...")
             self.sendMessage("All","TurningOff")
 
         self.led.setPixelColor(0,Color(0,0,0))
@@ -120,7 +120,7 @@ class LightSource(Module):
 
         if not initial:
             self.sendMessage("All","TurnedOff")
-            print("Light source turned off.")
+            self.log("INFO","Light source turned off.")
 
     def dim(self,brightness):
         """
@@ -130,7 +130,7 @@ class LightSource(Module):
             brightness (int): New brightness level (0-255).
         """
         if not self.led: return
-        print(f"Adjusting brightness to {brightness}...")
+        self.log("INFO",f"Adjusting brightness to {brightness}...")
         self.sendMessage("All","Dimming",{"brightness": brightness})
 
         self.brightness = brightness
@@ -139,7 +139,7 @@ class LightSource(Module):
             self.led.show() # Immediately applies the new brightness if the LED is on
 
         self.sendMessage("All","Dimmed",{"brightness": self.brightness})
-        print(f"Brightness set to {self.brightness}.")
+        self.log("INFO",f"Brightness set to {self.brightness}.")
 
     def calibrate(self,factors):
         """
@@ -149,7 +149,7 @@ class LightSource(Module):
             factors (dict): A dictionary with 'r','g','b' factors.
         """
         if not self.led: return
-        print(f"Applying calibration: {factors}...")
+        self.log("INFO",f"Applying calibration: {factors}...")
         self.sendMessage("All","Calibrating",factors)
 
         self.rgb_calibration = (
@@ -169,12 +169,12 @@ class LightSource(Module):
             "g": self.rgb_calibration[1],
             "b": self.rgb_calibration
         })
-        print(f"Calibration applied. New factors: {self.rgb_calibration}")
+        self.log("INFO",f"Calibration applied. New factors: {self.rgb_calibration}")
 
     def onStop(self):
         """
         Ensures the LED is turned off when the module terminates.
         """
-        print("Stopping LightSource module...")
+        self.log("INFO","Stopping LightSource module...")
         if self.led:
             self.turnOff(initial=True) # Turns off without sending events

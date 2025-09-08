@@ -47,7 +47,7 @@ class Communicator:
         elif self.commType == "client":
             self._runClient(stopEvent)
         else:
-            print(f"Error: Unknown communicator type '{self.commType}'")
+            self.log("ERROR",f"Unknown communicator type '{self.commType}'")
 
     # --- Server-side methods ---
     def _runServer(self, stopEvent):
@@ -62,9 +62,9 @@ class Communicator:
         try:
             self.server_socket.bind((self.config['address'], self.config['port']))
             self.server_socket.listen(5)
-            print(f"Server started on {self.config['address']}:{self.config['port']}")
+            self.log("INFO",f"Server started on {self.config['address']}:{self.config['port']}")
         except OSError as e:
-            print(f"ERROR: Could not start server. Details: {e}")
+            self.log("ERROR",f"Could not start server. Details: {e}")
             return
 
         # Start a dedicated thread for sending messages from the outgoing queue
@@ -75,7 +75,7 @@ class Communicator:
         while not stopEvent.is_set():
             try:
                 conn, addr = self.server_socket.accept()
-                print(f"Accepted connection from {addr}")
+                self.log("INFO",f"Accepted connection from {addr}")
 
                 # Identify client by its initial message
                 initial_msg_data = conn.recv(1024).decode('utf-8')
@@ -89,14 +89,14 @@ class Communicator:
                     client_thread.daemon = True
                     self.client_threads.append(client_thread)
                     client_thread.start()
-                    print(f"Client thread started for '{client_name}'")
+                    self.log("INFO",f"Client thread started for '{client_name}'")
                 else:
                     conn.close()
-                    print("Received connection from unknown client. Connection closed.")
+                    self.log("WARNING","Received connection from unknown client. Connection closed.")
             except socket.timeout:
                 continue
             except Exception as e:
-                print(f"Server error: {e}")
+                self.log("ERROR",f"Server error: {e}")
 
         # Cleanup
         if send_thread.is_alive():
@@ -124,7 +124,7 @@ class Communicator:
                         try:
                             sock.sendall(json_message.encode('utf-8'))
                         except (socket.error, BrokenPipeError):
-                            print(f"Failed to send to client '{name}'. Removing.")
+                            self.log("WARNING",f"Failed to send to client '{name}'. Removing.")
                             self.client_sockets.pop(name, None)
                 elif destination in self.client_sockets:
                     # Unicast message to a specific client
@@ -132,16 +132,16 @@ class Communicator:
                         sock = self.client_sockets[destination]
                         sock.sendall(json_message.encode('utf-8'))
                     except (socket.error, BrokenPipeError):
-                        print(f"Failed to send to client '{destination}'. Removing.")
+                        self.log("WARNING",f"Failed to send to client '{destination}'. Removing.")
                         self.client_sockets.pop(destination, None)
                 else:
-                    print(f"WARNING: Destination '{destination}' not found for message.")
+                    self.log("WARNING",f"Destination '{destination}' not found for message.")
 
                 self.outgoingQueue.task_done()
             except Empty:
                 continue  # No message to send, continue the loop
             except Exception as e:
-                print(f"Error in server send loop: {e}")
+                self.log("ERROR",f"Error in server send loop: {e}")
                 break
 
     def _serverHandleClient(self, client_name, conn, stopEvent):
@@ -161,17 +161,17 @@ class Communicator:
                             for message in messages:
                                 self.incomingQueue.put(message)
                 else:  # Client disconnected
-                    print(f"Client '{client_name}' disconnected.")
+                    self.log("INFO",f"Client '{client_name}' disconnected.")
                     self.client_sockets.pop(client_name, None)  # Remove the socket
                     break
             except socket.timeout:
                 continue
             except (socket.error, ConnectionResetError):
-                print(f"Client '{client_name}' connection lost.")
+                self.log("WARNING",f"Client '{client_name}' connection lost.")
                 self.client_sockets.pop(client_name, None)  # Remove the socket
                 break
             except Exception as e:
-                print(f"Error handling client '{client_name}': {e}")
+                self.log("ERROR",f"Error handling client '{client_name}': {e}")
                 self.client_sockets.pop(client_name, None)  # Remove the socket
                 break
 
@@ -191,7 +191,7 @@ class Communicator:
                 initial_msg = json.dumps({"name": self.name}) + '\n'
                 self.conn.sendall(initial_msg.encode('utf-8'))
 
-                print(f"Client '{self.name}' connected to server.")
+                self.log("INFO",f"Client '{self.name}' connected to server.")
 
                 # Start a separate thread to handle sending messages
                 send_thread = Thread(target=self._clientSendLoop, args=(stopEvent,))
@@ -204,10 +204,10 @@ class Communicator:
 
             except (ConnectionRefusedError, socket.timeout):
                 reconnect_delay = self.config.get('client_reconnect_delay_s', 3)
-                print(f"Connection failed. Retrying in {reconnect_delay} seconds...")
+                self.log("WARNING",f"Connection failed. Retrying in {reconnect_delay} seconds...")
                 time.sleep(reconnect_delay)
             except Exception as e:
-                print(f"Client '{self.name}' error: {e}")
+                self.log("ERROR",f"Client '{self.name}' error: {e}")
                 if self.conn:
                     self.conn.close()
                 break
@@ -232,15 +232,15 @@ class Communicator:
                             for message in messages:
                                 self.incomingQueue.put(message)
                 else:
-                    print("Server disconnected.")
+                    self.log("INFO","Server disconnected.")
                     break
             except socket.timeout:
                 continue
             except (socket.error, ConnectionResetError):
-                print("Connection to server lost.")
+                self.log("WARNING","Connection to server lost.")
                 break
             except Exception as e:
-                print(f"Error receiving data: {e}")
+                self.log("ERROR",f"Error receiving data: {e}")
                 break
 
     def _clientSendLoop(self, stopEvent):
@@ -256,10 +256,10 @@ class Communicator:
             except Empty:
                 continue
             except (socket.error, ConnectionResetError):
-                print("Failed to send message: connection lost.")
+                self.log("ERROR","Failed to send message: connection lost.")
                 break
             except Exception as e:
-                print(f"Error sending message: {e}")
+                self.log("ERROR",f"Error sending message: {e}")
                 break
 
     # --- Utility methods ---
@@ -272,5 +272,30 @@ class Communicator:
             # A single, complete JSON string is expected here
             messages.append(json.loads(data))
         except json.JSONDecodeError as e:
-            print(f"JSON parsing error: {e} in data: '{data}'")
+            self.log("ERROR",f"JSON parsing error: {e} in data: '{data}'")
         return messages
+
+    def log(self,level,message):
+        """
+        Sends a log message to the Logger module.
+
+        Args:
+            level (str): The log level (e.g., "INFO","ERROR","DEBUG").
+            message (str): The text of the log message.
+        """
+        payload = {
+            "level"   : level,
+            "message" : message
+        }
+        log_message = {
+            "Sender"      : self.name,
+            "Destination" : "Logger",
+            "Message"     : {
+                                "type"    : "LogMessage",
+                                "payload" : payload if payload is not None else {}
+                            }
+        }
+        try:
+            self.outgoingQueue.put(log_message)
+        except Full:
+            pass

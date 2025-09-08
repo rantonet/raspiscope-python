@@ -17,6 +17,7 @@ TEST_CONFIG = {
     "modules" : {
         "lightSource"   : {"enabled": True},
         "cuvetteSensor" : {"enabled": True},
+        "Logger"        : {"enabled": True}
     }
 }
 
@@ -24,6 +25,7 @@ TEST_CONFIG = {
 MOCK_MODULE_MAP = {
     "lightSource"   : MagicMock(),
     "cuvetteSensor" : MagicMock(),
+    "Logger"        : MagicMock()
 }
 
 def run_event_manager():

@@ -6,13 +6,13 @@ from queue import Empty
 
 from communicator import Communicator
 from eventManager import EventManager
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 # --- Configurazione di Rete per il Test ---
 TEST_CONFIG = {
     "network": {"address": "127.0.0.1", "port": 1025, "client_reconnect_delay_s": 0.1},
     "system": {"module_message_queue_timeout_s": 0.1},
-    "modules": {"FakeModule1": {"enabled": True}, "FakeModule2": {"enabled": True}}
+    "modules": {"FakeModule1": {"enabled": True}, "FakeModule2": {"enabled": True}, "Logger": {"enabled": True}}
 }
 
 # --- Modulo Fittizio per il Test di Comunicazione ---
@@ -45,9 +45,9 @@ def fake_module_run(name, stop_event, messages_to_send, received_messages_queue)
 
 def run_event_manager():
     """Funzione target per eseguire l'EventManager in un processo separato."""
-    # AGGIORNATO: Usa il mock di ConfigLoader invece di loadConfig
+    MOCK_MAP = {"Logger": MagicMock()}
     with patch('eventManager.ConfigLoader') as mock_config_loader, \
-         patch('eventManager.MODULE_MAP', new={}): # Nessun modulo reale istanziato
+         patch.dict('eventManager.MODULE_MAP', MOCK_MAP):
         # Configura l'istanza mock per restituire la configurazione di test
         mock_config_loader.return_value.get_config.return_value = TEST_CONFIG
         manager = EventManager("config.json")

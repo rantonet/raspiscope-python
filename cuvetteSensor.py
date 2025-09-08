@@ -25,10 +25,10 @@ class CuvetteSensor(Module):
         """
         try:
             self.sensor = InputDevice(self.inputPin)
-            print(f"Cuvette sensor initialized on pin {self.inputPin}.")
+            self.log("INFO",f"Cuvette sensor initialized on pin {self.inputPin}.")
             self.calibrate()
         except GPIOZeroError as e:
-            print(f"ERROR: Could not initialize sensor on pin {self.inputPin}. Details: {e}")
+            self.log("ERROR",f"Could not initialize sensor on pin {self.inputPin}. Details: {e}")
             self.sensor = None
 
     def mainLoop(self):
@@ -58,7 +58,7 @@ class CuvetteSensor(Module):
                 self.isPresent = False
                 self.sendMessage("Camera","CuvetteAbsent")
         except Exception as e:
-            print(f"Error while reading the sensor: {e}")
+            self.log("ERROR",f"Error while reading the sensor: {e}")
             self.stop_event.set()
 
     def calibrate(self):

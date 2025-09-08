@@ -48,16 +48,16 @@ class Logger(Module):
         if "file" in self.destinations:
             try:
                 self.log_file = open(self.config.get("path","app.log"),"a")
-                print("Logger module configured to write to file.")
+                self.log("INFO","Logger module configured to write to file.")
             except Exception as e:
-                print(f"ERROR: Could not open log file. Reverting to stdout. Details: {e}")
+                self.log("ERROR",f"Could not open log file. Reverting to stdout. Details: {e}")
                 self.destinations = [d for d in self.destinations if d != "file"]
                 self.destinations.append("stdout")
                 self.log_file = None
         if "websocket" in self.destinations:
-            print("Logger module configured to send logs via WebSocket.")
+            self.log("INFO","Logger module configured to send logs via WebSocket.")
         if "stdout" in self.destinations:
-            print("Logger module configured to write to standard output.")
+            self.log("INFO","Logger module configured to write to standard output.")
 
     def handleMessage(self,message):
         """
@@ -103,5 +103,5 @@ class Logger(Module):
         Performs cleanup, such as closing the log file.
         """
         if "file" in self.destinations and self.log_file:
-            print("Closing log file.")
+            self.log("INFO","Closing log file.")
             self.log_file.close()

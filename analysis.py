@@ -92,7 +92,7 @@ class Analysis(Module):
         Args:
             imageData (numpy.ndarray): The pixel matrix of the color image.
         """
-        print("Starting absorption spectrogram analysis...")
+        self.log("INFO","Starting absorption spectrogram analysis...")
         
         try:
             # Phase 1: Data Extraction and Pre-processing
@@ -193,7 +193,7 @@ class Analysis(Module):
                 if numpy.isclose(estimatedWavelengthNm,refWavelength,atol=self.toleranceNm):
                     substance = row['substance']
                     if substance not in identifiedSubstances:
-                        print(f"Substance '{substance}' identified! Wavelength: {estimatedWavelengthNm:.2f} nm.")
+                        self.log("INFO",f"Substance '{substance}' identified! Wavelength: {estimatedWavelengthNm:.2f} nm.")
                         identifiedSubstances.add(substance)
 
                     results["detected_peaks"].append({
@@ -220,4 +220,4 @@ class Analysis(Module):
             results (dict): The dictionary of analysis results.
         """
         self.sendMessage("All","AnalysisComplete",results)
-        print("Analysis complete and results sent.")
+        self.log("INFO","Analysis complete and results sent.")

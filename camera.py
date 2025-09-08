@@ -27,9 +27,9 @@ class Camera(Module):
             camConfig  = self.camera.create_still_configuration({"size": resolution})
             self.camera.configure(camConfig)
             self.camera.start()
-            print(f"Camera started and configured with resolution {resolution}.")
+            self.log("INFO",f"Camera started and configured with resolution {resolution}.")
         except Exception as e:
-            print(f"ERROR: Could not initialize camera: {e}")
+            self.log("ERROR",f"Could not initialize camera: {e}")
             self.camera = None
 
     def handleMessage(self,message):
@@ -37,19 +37,19 @@ class Camera(Module):
         Handles incoming messages.
         """
         if not self.camera:
-            print("Camera not available,ignoring command.")
+            self.log("WARNING","Camera not available,ignoring command.")
             return
 
         msgType = message.get("Message",{}).get("type")
 
         if msgType == "CuvettePresent":
-            print("Received cuvette present signal. Taking a picture.")
+            self.log("INFO","Received cuvette present signal. Taking a picture.")
             self.takePicture()
         elif msgType == "Take":
-            print("Received 'Take' command. Taking a picture.")
+            self.log("INFO","Received 'Take' command. Taking a picture.")
             self.takePicture()
         elif msgType == "Calibrate":
-            print("Received 'Calibrate' command. Starting calibration.")
+            self.log("INFO","Received 'Calibrate' command. Starting calibration.")
             self.calibrate()
 
     def takePicture(self):
@@ -57,11 +57,11 @@ class Camera(Module):
         Takes a picture and sends it to the Analysis module.
         """
         if not self.camera:
-            print("Cannot take picture,camera not initialized.")
+            self.log("ERROR","Cannot take picture,camera not initialized.")
             return
 
         try:
-            print("Taking picture...")
+            self.log("INFO","Taking picture...")
             # Capture the image as a numpy array
             imageArray = self.camera.capture_array()
 
@@ -71,21 +71,21 @@ class Camera(Module):
 
             payload = {"image": imageB64}
             self.sendMessage("Analysis","Analyze",payload)
-            print("Picture taken and sent for analysis.")
+            self.log("INFO","Picture taken and sent for analysis.")
 
         except Exception as e:
-            print(f"ERROR while taking picture: {e}")
+            self.log("ERROR",f"ERROR while taking picture: {e}")
 
     def calibrate(self):
         """
         Performs camera calibration.
         Placeholder for the actual calibration logic.
         """
-        print("Starting camera calibration...")
+        self.log("INFO","Starting camera calibration...")
         # TODO: Implement calibration logic (e.g.,white balance,exposure).
         time.sleep(2) # Simulate calibration time
         self.sendMessage("All","CameraCalibrated",{"status": "success"})
-        print("Camera calibration complete.")
+        self.log("INFO","Camera calibration complete.")
 
     def onStop(self):
         """
@@ -93,4 +93,4 @@ class Camera(Module):
         """
         if self.camera and self.camera.started:
             self.camera.stop()
-            print("Camera stopped.")
+            self.log("INFO","Camera stopped.")
