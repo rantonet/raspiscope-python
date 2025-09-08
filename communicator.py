@@ -118,14 +118,15 @@ class Communicator:
                 json_message = json.dumps(message) + '\n'  # Add a delimiter
 
                 if destination == "All":
-                    # Broadcast to all connected clients
-                    # Create a copy to avoid concurrency issues if the dictionary changes
+                    # Broadcast to all connected clients, EXCLUDING the sender
+                    sender = message.get("Sender")
                     for name, sock in list(self.client_sockets.items()):
-                        try:
-                            sock.sendall(json_message.encode('utf-8'))
-                        except (socket.error, BrokenPipeError):
-                            self.log("WARNING",f"Failed to send to client '{name}'. Removing.")
-                            self.client_sockets.pop(name, None)
+                        if name != sender:
+                            try:
+                                sock.sendall(json_message.encode('utf-8'))
+                            except (socket.error, BrokenPipeError):
+                                self.log("WARNING",f"Failed to send to client '{name}'. Removing.")
+                                self.client_sockets.pop(name, None)
                 elif destination in self.client_sockets:
                     # Unicast message to a specific client
                     try:

@@ -95,11 +95,13 @@ class TestEventManager(unittest.TestCase):
             msg2_uni = module2_client.incomingQueue.get(timeout=5)
             self.assertEqual(msg2_uni['Message']['type'], 'UnicastTest')
 
-            # Entrambi i moduli devono ricevere il messaggio multicast
+            # Solo il modulo 1 deve ricevere il messaggio multicast (non il mittente)
             msg1_multi = module1_client.incomingQueue.get(timeout=5)
             self.assertEqual(msg1_multi['Message']['type'], 'MulticastTest')
-            msg2_multi = module2_client.incomingQueue.get(timeout=5)
-            self.assertEqual(msg2_multi['Message']['type'], 'MulticastTest')
+
+            # Verifica che il modulo 2 (mittente) non riceva il suo stesso multicast
+            with self.assertRaises(Empty):
+                module2_client.incomingQueue.get(timeout=1)
 
         except Empty:
             self.fail("Un modulo non ha ricevuto il messaggio atteso entro il timeout.")

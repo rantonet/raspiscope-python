@@ -108,8 +108,11 @@ class TestCommunicatorEndToEnd(unittest.TestCase):
         # Estrae solo il corpo del messaggio per un confronto più semplice
         m1_payloads = [msg['Message'] for msg in m1_received_list]
         m2_payloads = [msg['Message'] for msg in m2_received_list]
+
+        # Il modulo 2 riceve entrambi i messaggi da M1 (unicast + broadcast)
         m2_expected_payloads = [msg['Message'] for msg in messages_from_m1]
-        m1_expected_payloads = [msg['Message'] for msg in messages_from_m2] + [m2_expected_payloads[1]] # M1 riceve anche il suo broadcast
+        # Il modulo 1 riceve solo i messaggi da M2 (non il suo broadcast)
+        m1_expected_payloads = [msg['Message'] for msg in messages_from_m2]
 
         self.assertCountEqual(m1_payloads, m1_expected_payloads, "Modulo 1 ha ricevuto messaggi inattesi.")
         self.assertCountEqual(m2_payloads, m2_expected_payloads, "Modulo 2 ha ricevuto messaggi inattesi.")
