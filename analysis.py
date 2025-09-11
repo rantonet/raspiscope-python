@@ -5,8 +5,8 @@ import time
 import base64
 import json
 from scipy.signal import find_peaks
-from threading import Thread
-from module import Module
+from threading    import Thread
+from module       import Module
 
 class Analysis(Module):
     """

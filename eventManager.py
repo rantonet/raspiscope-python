@@ -5,12 +5,12 @@ from threading       import Thread,Event
 from queue           import Empty, Full
 
 # Import delle classi dei moduli e del caricatore di configurazione
-from communicator import Communicator
-from configLoader import ConfigLoader  # <-- Modificato: Importa ConfigLoader
-from lightSource import LightSource
-from cuvetteSensor import CuvetteSensor
-from camera import Camera
-from analysis import Analysis
+from communicator    import Communicator
+from configLoader    import ConfigLoader  # <-- Modificato: Importa ConfigLoader
+from lightSource     import LightSource
+from cuvetteSensor   import CuvetteSensor
+from camera          import Camera
+from analysis        import Analysis
 
 # Mappatura dai nomi nel config alle classi Python
 MODULE_MAP = {
@@ -29,11 +29,8 @@ class EventManager:
         """
         Initializes the EventManager.
         """
-        # --- Sezione Aggiornata ---
-        # Usa la classe ConfigLoader per caricare la configurazione.
         config_loader     = ConfigLoader(configPath)
         self.config       = config_loader.get_config()
-        # --- Fine Sezione Aggiornata ---
         
         self.name             = "EventManager"
         networkConfig         = self.config['network']

@@ -1,6 +1,6 @@
 import time
 from rpi_ws281x import PixelStrip,Color
-from module import Module
+from module     import Module
 
 class LightSource(Module):
     """

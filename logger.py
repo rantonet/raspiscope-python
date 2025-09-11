@@ -2,7 +2,7 @@ import time
 import json
 import asyncio
 import websockets
-from module import Module
+from module       import Module
 
 class Logger(Module):
     """

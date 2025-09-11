@@ -4,12 +4,12 @@ while (stop signal?) is (no)
     if (Cuvette present?) then (yes)
         :Start camera;
         :Get picture;
-        :Get spectrograph;
         :Analyze spectrograph;
         :Return spectrograph and solution composition;
-        while (cuvette present?) is (yes)
+        while (cuvette still present?) is (yes)
             :Waiting for cuvette release;
         endwhile (no)
+    else (no)
     endif
 endwhile (yes)
 stop

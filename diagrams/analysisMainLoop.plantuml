@@ -1,0 +1,14 @@
+@startuml Analysis Main Loop
+start
+while (stop signal?) is (no)
+    if (Cuvette present?) then (yes)
+        :Send "take picture" event to Camera module;
+        while (picture received) is (no)
+        endwhile (yes)
+        :Get\nspectrograph\nfrom picture;
+        :Compare\nreceived spectrograph\nwith spectrographs in database;
+        :Return\nspectrograph and\nsolution composition;
+    endif
+endwhile (yes)
+stop
+@enduml
