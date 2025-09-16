@@ -1,8 +1,14 @@
+"""
+Author: Antlampas
+CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0/
+"""
+
 import json
 import socket
 import time
 from threading import Thread, Event
-from queue     import Queue, Empty, Full
+from queue import Queue, Empty, Full
 
 class Communicator:
     """
@@ -206,15 +212,20 @@ class Communicator:
             except (ConnectionRefusedError, socket.timeout):
                 reconnect_delay = self.config.get('client_reconnect_delay_s', 3)
                 self.log("WARNING",f"Connection failed. Retrying in {reconnect_delay} seconds...")
+                if self.conn:
+                    self.conn.close()
+                    self.conn = None # Set to None after closing
                 time.sleep(reconnect_delay)
             except Exception as e:
                 self.log("ERROR",f"Client '{self.name}' error: {e}")
                 if self.conn:
                     self.conn.close()
+                    self.conn = None # Set to None after closing
                 break
 
         if self.conn:
             self.conn.close()
+            self.conn = None # Set to None after closing
 
     def _clientReceiveLoop(self, stopEvent):
         """

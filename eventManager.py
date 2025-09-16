@@ -1,23 +1,25 @@
 import json
 import signal
 from multiprocessing import Process
-from threading       import Thread,Event
-from queue           import Empty, Full
+from threading import Thread,Event
+from queue import Empty, Full
 
 # Import delle classi dei moduli e del caricatore di configurazione
-from communicator    import Communicator
-from configLoader    import ConfigLoader  # <-- Modificato: Importa ConfigLoader
-from lightSource     import LightSource
-from cuvetteSensor   import CuvetteSensor
-from camera          import Camera
-from analysis        import Analysis
+from communicator import Communicator
+from configLoader import ConfigLoader  # <-- Modificato: Importa ConfigLoader
+from lightSource import LightSource
+from cuvetteSensor import CuvetteSensor
+from camera import Camera
+from analysis import Analysis
+from logger import Logger
 
 # Mappatura dai nomi nel config alle classi Python
 MODULE_MAP = {
     "lightSource": LightSource,
     "cuvetteSensor": CuvetteSensor,
     "camera": Camera,
-    "analysis": Analysis
+    "analysis": Analysis,
+    "logger": Logger
 }
 
 class EventManager:
@@ -49,9 +51,11 @@ class EventManager:
         systemConfig        = self.config.get("system",{})
 
         for name,modConfig in moduleConfigs.items():
+            # Standardize module name to match keys in MODULE_MAP
+            normalized_name = name.lower()
             if modConfig.get("enabled",False):
-                if name in MODULE_MAP:
-                    ModuleClass = MODULE_MAP[name]
+                if normalized_name in MODULE_MAP:
+                    ModuleClass = MODULE_MAP[normalized_name]
                     self.log("INFO",f"Instantiating module: {name}")
                     # Iniezione delle dipendenze
                     moduleInstance = ModuleClass(

@@ -1,3 +1,9 @@
+"""
+Author: Antlampas
+CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0/
+"""
+
 import sys
 from eventManager import EventManager
 from configLoader import ConfigLoader # <-- Modificato: Importa ConfigLoader

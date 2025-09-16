@@ -1,3 +1,9 @@
+"""
+Author: Antlampas
+CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0/
+"""
+
 import time
 from rpi_ws281x import PixelStrip,Color
 from module     import Module
