@@ -1,5 +1,8 @@
 @startuml Camera Calibration
 start
+:Get ISO List;
+:Get Exposure List;
+:Get Brightness;
 while (Calibrated) is (no)
     while (ISO in ISO-List)
         :Set camera ISO;
@@ -7,14 +10,15 @@ while (Calibrated) is (no)
             :Set camera Exposure;
             while (Brightness in Brightness-List)
                 :Set camera Brightness;
+                :Create Settings-array with ISO, Exposure and Brightness;
                 :Get picture;
-                :Get gradient;
-                :Add settings and gradient to array;
+                :Compute gradient;
+                :Add Settings-array and gradient to array;
             endwhile (no)
         endwhile (no)
     endwhile (no)
 endwhile (yes)
 :Find settings with highest gradient;
-:Save settings;
+:Save those settings;
 stop
 @enduml

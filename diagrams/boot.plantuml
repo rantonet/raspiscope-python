@@ -5,11 +5,11 @@ start
 :Calibrate the camera;
 :Set the light;
 :Calibrate the light;
-if (is the first boot ever?) then (yes)
+if (Is the first boot ever?) then (yes)
     :Get the spectrographs database;
 else (no)
-    if (new spectrographs or spectrographs updates?) then (yes)
-        :Get updates
+    if (New spectrographs\nor\nspectrographs updates?) then (yes)
+        :Get updates;
     else (no)
     endif
 endif

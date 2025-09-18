@@ -84,15 +84,72 @@ class Camera(Module):
 
     def calibrate(self):
         """
-        Performs camera calibration.
-        Placeholder for the actual calibration logic.
+        Performs an automated calibration by iterating through various combinations
+        of ISO, exposure, and brightness settings to find the optimal set that
+        maximizes image quality, as measured by the image gradient. The
+        calibration process follows the logic defined in the project's diagrams.
+        
+        The best settings are then saved and applied to the camera.
+        This method does not modify the camera's resolution.
         """
-        self.log("INFO","Starting camera calibration...")
-        # TODO: Implement calibration logic (e.g.,white balance,exposure).
-        time.sleep(2) # Simulate calibration time
-        self.sendMessage("All","CameraCalibrated",{"status": "success"})
-        self.log("INFO","Camera calibration complete.")
+        if not self.camera:
+            self.log("WARNING", "Cannot perform calibration, camera not initialized.")
+            self.sendMessage("All", "CameraCalibrated", {"status": "error", "message": "Camera not initialized."})
+            return
 
+        self.log("INFO", "Starting camera calibration...")
+        self.sendMessage("All", "CalibrationStarted", {"message": "Starting camera calibration..."})
+
+        # Placeholder: These lists should be defined based on the camera's capabilities.
+        iso_list        = [100, 200, 400, 800]
+        exposure_list   = [5000, 10000, 20000, 40000] # in microseconds
+        brightness_list = [0.1, 0.5, 0.9] # values from 0 to 1
+
+        best_settings = {"iso": None, "exposure": None, "brightness": None, "gradient": 0}
+
+        try:
+            # Iterate through all combinations of settings
+            for iso in iso_list:
+                for exposure in exposure_list:
+                    for brightness in brightness_list:
+                        # 1. Setting the parameters
+                        self.camera.set_controls({"AnalogueGain": iso/100, "ExposureTime": exposure})
+                        self.camera.set_brightness(brightness)
+                        
+                        # 2. Capturing the image
+                        image_array = self.camera.capture_array()
+                        
+                        # 3. Calculating the gradient (measure of contrast/detail)
+                        gray_image = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
+                        sobelx = cv2.Sobel(gray_image, cv2.CV_64F, 1, 0, ksize=5)
+                        sobely = cv2.Sobel(gray_image, cv2.CV_64F, 0, 1, ksize=5)
+                        gradient = numpy.sqrt(sobelx**2 + sobely**2).mean()
+
+                        self.log("DEBUG", f"Testing settings: ISO={iso}, Exposure={exposure}, Brightness={brightness}, Gradient={gradient}")
+                        
+                        # 4. Updating the best settings
+                        if gradient > best_settings["gradient"]:
+                            best_settings["iso"]        = iso
+                            best_settings["exposure"]   = exposure
+                            best_settings["brightness"] = brightness
+                            best_settings["gradient"]   = gradient
+
+            # 5. Applying the best settings found
+            if best_settings["iso"]:
+                self.camera.set_controls({
+                    "AnalogueGain": best_settings["iso"]/100,
+                    "ExposureTime": best_settings["exposure"]
+                })
+                self.camera.set_brightness(best_settings["brightness"])
+                self.log("INFO", f"Calibration complete. Best settings found: {best_settings}")
+                self.sendMessage("All", "CameraCalibrated", {"status": "success", "settings": best_settings})
+            else:
+                self.log("ERROR", "Calibration failed: could not find best settings.")
+                self.sendMessage("All", "CameraCalibrated", {"status": "error", "message": "No optimal settings found."})
+
+        except Exception as e:
+            self.log("ERROR", f"An error occurred during calibration: {e}")
+            self.sendMessage("All", "CameraCalibrated", {"status": "error", "message": f"Calibration failed: {e}"})
     def onStop(self):
         """
         Stops the camera when the module is terminated.

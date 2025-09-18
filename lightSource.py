@@ -147,35 +147,26 @@ class LightSource(Module):
         self.sendMessage("All","Dimmed",{"brightness": self.brightness})
         self.log("INFO",f"Brightness set to {self.brightness}.")
 
-    def calibrate(self,factors):
+    def setColor(self, r, g, b):
         """
-        Applies calibration factors to the RGB channels.
+        Sets the RGB color of the LED.
 
         Args:
-            factors (dict): A dictionary with 'r','g','b' factors.
+            r (int): The red color component (0-255).
+            g (int): The green color component (0-255).
+            b (int): The blue color component (0-255).
         """
-        if not self.led: return
-        self.log("INFO",f"Applying calibration: {factors}...")
-        self.sendMessage("All","Calibrating",factors)
+        if not self.led:
+            self.log("WARNING", "Cannot set color, light source not available.")
+            return
 
-        self.rgb_calibration = (
-            float(factors.get('r',1.0)),
-            float(factors.get('g',1.0)),
-            float(factors.get('b',1.0))
-        )
+        self.log("INFO", f"Setting LED color to R:{r}, G:{g}, B:{b}...")
+        self.led.setPixelColor(0, Color(r, g, b))
+        self.led.show()
+        self.is_on = True
 
-        if self.is_on:
-            # If the LED is on,immediately apply the new calibrated color
-            finalColor = self._calculateColor()
-            self.led.setPixelColor(0,finalColor)
-            self.led.show()
-
-        self.sendMessage("All","Calibrated",{
-            "r": self.rgb_calibration,
-            "g": self.rgb_calibration[1],
-            "b": self.rgb_calibration
-        })
-        self.log("INFO",f"Calibration applied. New factors: {self.rgb_calibration}")
+        self.sendMessage("All", "ColorSet", {"r": r, "g": g, "b": b})
+        self.log("INFO", "LED color set successfully.")
 
     def onStop(self):
         """
