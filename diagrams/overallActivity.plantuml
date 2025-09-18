@@ -5,9 +5,9 @@ while (stop signal?) is (no)
         :Start camera;
         :Get picture;
         :Analyze spectrograph;
-        :Return spectrograph and solution composition;
+        :Return spectrograph\nand solution composition;
         while (cuvette still present?) is (yes)
-            :Waiting for cuvette release;
+            :Wait for cuvette release;
         endwhile (no)
     else (no)
     endif
