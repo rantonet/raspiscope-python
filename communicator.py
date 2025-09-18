@@ -8,7 +8,7 @@ import json
 import socket
 import time
 from threading import Thread, Event
-from queue import Queue, Empty, Full
+from queue     import Queue, Empty, Full
 
 class Communicator:
     """
@@ -49,18 +49,14 @@ class Communicator:
         instance is a server or a client.
         """
         if self.commType == "server":
+            self._initializeServer()
             self._runServer(stopEvent)
         elif self.commType == "client":
             self._runClient(stopEvent)
         else:
             self.log("ERROR",f"Unknown communicator type '{self.commType}'")
 
-    # --- Server-side methods ---
-    def _runServer(self, stopEvent):
-        """
-        Runs the server loop for the EventManager.
-        Accepts connections and manages threads for each client.
-        """
+    def _initializeServer(self):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.settimeout(1.0)  # To allow graceful exit
@@ -78,6 +74,12 @@ class Communicator:
         send_thread.daemon = True
         send_thread.start()
 
+    # --- Server-side methods ---
+    def _runServer(self, stopEvent):
+        """
+        Runs the server loop for the EventManager.
+        Accepts connections and manages threads for each client.
+        """
         while not stopEvent.is_set():
             try:
                 conn, addr = self.server_socket.accept()
