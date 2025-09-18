@@ -2,8 +2,8 @@
 start
 while (Stop request received) is (no)
     if (Take Picture event received) then (yes)
-        :Take picture
-        :Send picture thru picture event to requiring module
+        :Take picture;
+        :Send picture thru picture event to requiring module;
     endif
 endwhile (received)
 stop

@@ -2,19 +2,19 @@
 start
 while (Calibrated) is (no)
     while (ISO in ISO-List)
-        :Set camera ISO
+        :Set camera ISO;
         while (Exposure in Exposure-List)
-            :Set camera Exposure
+            :Set camera Exposure;
             while (Brightness in Brightness-List)
-                :Set camera Brightness
-                :Get picture
-                :Get gradient
-                :Add settings and gradient to array
+                :Set camera Brightness;
+                :Get picture;
+                :Get gradient;
+                :Add settings and gradient to array;
             endwhile (no)
         endwhile (no)
     endwhile (no)
 endwhile (yes)
-:Find settings with highest gradient
-:Save settings
+:Find settings with highest gradient;
+:Save settings;
 stop
 @enduml
