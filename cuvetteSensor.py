@@ -29,10 +29,10 @@ class CuvetteSensor(Module):
         """
         Initializes the sensor and starts calibration.
         """
+        self.sendMessage("EventManager", "Register")
         try:
             self.sensor = InputDevice(self.inputPin)
             self.log("INFO",f"Cuvette sensor initialized on pin {self.inputPin}.")
-            self.calibrate()
         except GPIOZeroError as e:
             self.log("ERROR",f"Could not initialize sensor on pin {self.inputPin}. Details: {e}")
             self.sensor = None

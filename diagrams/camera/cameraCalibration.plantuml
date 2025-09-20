@@ -1,19 +1,25 @@
 @startuml Camera Calibration
 start
-:Get ISO List;
+:Get Gain List;
 :Get Exposure List;
 :Get Brightness;
 while (Calibrated) is (no)
-    while (ISO in ISO-List)
-        :Set camera ISO;
-        while (Exposure in Exposure-List)
-            :Set camera Exposure;
-            while (Brightness in Brightness-List)
-                :Set camera Brightness;
-                :Create Settings-array with ISO, Exposure and Brightness;
-                :Get picture;
-                :Compute gradient;
-                :Add Settings-array and gradient to array;
+    while (Light in Lights-List)
+        :Set Light;
+        while (Color in Colors-List)
+            :Set Color;
+            while (Gain in Gain-List)
+                :Set camera Gain;
+                while (Exposure in Exposure-List)
+                    :Set camera Exposure;
+                    while (Brightness in Brightness-List)
+                        :Set camera Brightness;
+                        :Create Settings-array with Gain, Exposure and Brightness;
+                        :Get picture;
+                        :Compute gradient;
+                        :Add Settings-array and gradient to array;
+                    endwhile (no)
+                endwhile (no)
             endwhile (no)
         endwhile (no)
     endwhile (no)

@@ -43,8 +43,8 @@ class Module:
 
         self.onStart()
         self.mainLoop()
-        
         self.onStop()
+        
         if self.communicatorThread:
             self.communicatorThread.join()
         self.log("INFO",f"Module '{self.name}' terminated.")

@@ -36,6 +36,7 @@ class LightSource(Module):
         """
         Initializes the LED strip.
         """
+        self.sendMessage("EventManager", "Register")
         try:
             # The rpi_ws281x library requires root privileges to run
             self.led = PixelStrip(

@@ -26,6 +26,7 @@ class Camera(Module):
         """
         Initializes and configures the camera when the module starts.
         """
+        self.sendMessage("EventManager", "Register")
         try:
             self.camera = Picamera2()
             # La risoluzione viene letta direttamente dalla configurazione iniettata
@@ -84,13 +85,20 @@ class Camera(Module):
 
     def calibrate(self):
         """
-        Performs an automated calibration by iterating through various combinations
-        of ISO, exposure, and brightness settings to find the optimal set that
-        maximizes image quality, as measured by the image gradient. The
-        calibration process follows the logic defined in the project's diagrams.
-        
-        The best settings are then saved and applied to the camera.
-        This method does not modify the camera's resolution.
+        Performs a comprehensive automated calibration by iterating through various
+        combinations of camera and RGB LED settings to find the optimal set that
+        maximizes image quality, as measured by sharpness, contrast, and visible
+        color spectrum.
+
+        The process involves:
+        1. Setting camera parameters (ISO, exposure).
+        2. Communicating with the LightSource module to set the RGB LED color and brightness.
+        3. Capturing an image and calculating a combined score based on:
+           - Sharpness (using image gradient).
+           - Contrast (using standard deviation).
+           - Visible color band (using average saturation from the HSV color space).
+        4. Storing the settings with the highest combined score.
+        5. Applying the optimal settings to both the camera and the LightSource module.
         """
         if not self.camera:
             self.log("WARNING", "Cannot perform calibration, camera not initialized.")
@@ -100,47 +108,93 @@ class Camera(Module):
         self.log("INFO", "Starting camera calibration...")
         self.sendMessage("All", "CalibrationStarted", {"message": "Starting camera calibration..."})
 
-        # Placeholder: These lists should be defined based on the camera's capabilities.
-        iso_list        = [100, 200, 400, 800]
-        exposure_list   = [5000, 10000, 20000, 40000] # in microseconds
-        brightness_list = [0.1, 0.5, 0.9] # values from 0 to 1
+        # Get valid gain range from the camera itself
+        try:
+            gain_min, gain_max, _ = self.camera.camera_controls['AnalogueGain']
+            self.log("INFO", f"Valid AnalogueGain range: {gain_min} - {gain_max}")
+        except Exception as e:
+            self.log("ERROR", f"Could not get AnalogueGain range: {e}. Using default list.")
+            gain_min, gain_max = 1.0, 16.0 # Fallback to a safe range
 
-        best_settings = {"iso": None, "exposure": None, "brightness": None, "gradient": 0}
+        def makeColorsList():
+            from itertools import product
+            return list(product(range(15,260,10), range(15,260,10), range(15,260,10)))
+
+        # Placeholder lists for camera and LED settings
+        gain_list           = [gain for gain in range(gain_min, gain_max, 0.2)]
+        exposure_list       = [microseconds * 1000 for microseconds in range(10,105,10)] # in microseconds
+        rgb_colors_list     = makeColorsList()
+        led_brightness_list = [light for light in range(25,260,10)] # values from 0-255
+
+        best_settings = {
+            "camera": {"gain": None, "exposure": None},
+            "light":  {"r": None, "g": None, "b": None, "brightness": None},
+            "score": 0
+        }
 
         try:
-            # Iterate through all combinations of settings
-            for iso in iso_list:
+            # Iterate through all combinations of camera and LED settings
+            for gain in gain_list:
                 for exposure in exposure_list:
-                    for brightness in brightness_list:
-                        # 1. Setting the parameters
-                        self.camera.set_controls({"AnalogueGain": iso/100, "ExposureTime": exposure})
-                        self.camera.set_brightness(brightness)
-                        
-                        # 2. Capturing the image
-                        image_array = self.camera.capture_array()
-                        
-                        # 3. Calculating the gradient (measure of contrast/detail)
-                        gray_image = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
-                        sobelx = cv2.Sobel(gray_image, cv2.CV_64F, 1, 0, ksize=5)
-                        sobely = cv2.Sobel(gray_image, cv2.CV_64F, 0, 1, ksize=5)
-                        gradient = numpy.sqrt(sobelx**2 + sobely**2).mean()
+                    for r, g, b in rgb_colors_list:
+                        for brightness in led_brightness_list:
+                            # 1. Set camera and LED parameters
+                            self.camera.set_controls({"AnalogueGain": gain, "ExposureTime": exposure})
+                            self.sendMessage("LightSource", "SetColor", {"r": r, "g": g, "b": b})
+                            self.sendMessage("LightSource", "Dim", {"brightness": brightness})
+                            time.sleep(0.001) # Wait for the LED to update
+                            
+                            # 2. Capture the image
+                            image_array = self.camera.capture_array()
+                            
+                            # 3. Convert to grayscale and HSV for metric calculation
+                            gray_image = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
+                            hsv_image = cv2.cvtColor(image_array, cv2.COLOR_BGR2HSV)
 
-                        self.log("DEBUG", f"Testing settings: ISO={iso}, Exposure={exposure}, Brightness={brightness}, Gradient={gradient}")
-                        
-                        # 4. Updating the best settings
-                        if gradient > best_settings["gradient"]:
-                            best_settings["iso"]        = iso
-                            best_settings["exposure"]   = exposure
-                            best_settings["brightness"] = brightness
-                            best_settings["gradient"]   = gradient
+                            # 4. Calculate metrics
+                            # Sharpness (Gradient)
+                            sobelx = cv2.Sobel(gray_image, cv2.CV_64F, 1, 0, ksize=5)
+                            sobely = cv2.Sobel(gray_image, cv2.CV_64F, 0, 1, ksize=5)
+                            gradient = numpy.sqrt(sobelx**2 + sobely**2).mean()
 
-            # 5. Applying the best settings found
-            if best_settings["iso"]:
+                            # Contrast (Standard Deviation)
+                            contrast = numpy.std(gray_image)
+
+                            # Visible Color Band (Average Saturation)
+                            # We get the saturation channel (index 1) from the HSV image
+                            saturation = hsv_image[:, :, 1]
+                            avg_saturation = numpy.mean(saturation)
+
+                            # 5. Calculate combined score
+                            # A simple sum is used, but weights could be added for more specific optimization.
+                            total_score = gradient + contrast + avg_saturation
+                            self.log("DEBUG", f"Testing settings: Gain={gain:.2f}, Exposure={exposure}, RGB={r,g,b}, Brightness={brightness}, Score={total_score}")
+                            
+                            # 6. Update the best settings
+                            if total_score > best_settings["score"]:
+                                best_settings["camera"]["gain"]        = gain
+                                best_settings["camera"]["exposure"]   = exposure
+                                best_settings["light"]["r"]           = r
+                                best_settings["light"]["g"]           = g
+                                best_settings["light"]["b"]           = b
+                                best_settings["light"]["brightness"]  = brightness
+                                best_settings["score"]                = total_score
+
+            # 7. Apply the best settings found
+            if best_settings["camera"]["gain"]:
+                # Set best camera settings
                 self.camera.set_controls({
-                    "AnalogueGain": best_settings["iso"]/100,
-                    "ExposureTime": best_settings["exposure"]
+                    "AnalogueGain": best_settings["camera"]["gain"],
+                    "ExposureTime": best_settings["camera"]["exposure"]
                 })
-                self.camera.set_brightness(best_settings["brightness"])
+                # Set best light settings
+                self.sendMessage("LightSource", "SetColor", {
+                    "r": best_settings["light"]["r"],
+                    "g": best_settings["light"]["g"],
+                    "b": best_settings["light"]["b"]
+                })
+                self.sendMessage("LightSource", "Dim", {"brightness": best_settings["light"]["brightness"]})
+
                 self.log("INFO", f"Calibration complete. Best settings found: {best_settings}")
                 self.sendMessage("All", "CameraCalibrated", {"status": "success", "settings": best_settings})
             else:
@@ -150,6 +204,7 @@ class Camera(Module):
         except Exception as e:
             self.log("ERROR", f"An error occurred during calibration: {e}")
             self.sendMessage("All", "CameraCalibrated", {"status": "error", "message": f"Calibration failed: {e}"})
+            
     def onStop(self):
         """
         Stops the camera when the module is terminated.

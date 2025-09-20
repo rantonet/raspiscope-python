@@ -51,6 +51,7 @@ class Logger(Module):
         """
         Initializes the logger based on the destination configuration.
         """
+        self.sendMessage("EventManager", "Register")
         if "file" in self.destinations:
             try:
                 self.log_file = open(self.config.get("path","app.log"),"a")

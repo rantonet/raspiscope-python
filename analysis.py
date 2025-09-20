@@ -29,36 +29,17 @@ class Analysis(Module):
     def onStart(self):
         """
         Method called when the module starts.
-        Loads the reference data.
+        Loads the reference data and registers with the EventManager.
         """
+        self.sendMessage("EventManager", "Register")
         try:
             self.referenceSpectra = pandas.read_csv(self.referenceSpectraPath)
             self.referenceSpectra.set_index('wavelength',inplace=True)
-            self.sendMessage("All",
-                             "AnalysisInitialized",
-                             {
-                                "path"   : self.referenceSpectraPath,
-                                "status" : "success"
-                             }
-                            )
+            self.log("INFO", f"Reference spectra loaded successfully from {self.referenceSpectraPath}.")
         except FileNotFoundError:
-            self.sendMessage("All",
-                             "AnalysisInitialized",
-                             {
-                                "path"    : self.referenceSpectraPath,
-                                "status"  : "error",
-                                "message" : "Reference file not found"
-                             }
-                            )
+            self.log("ERROR", f"Reference file not found at {self.referenceSpectraPath}. Analysis module will not work correctly.")
         except Exception as e:
-            self.sendMessage("All",
-                             "AnalysisInitialized",
-                             {
-                                "path"    : self.referenceSpectraPath,
-                                "status"  : "error",
-                                "message" : str(e)
-                             }
-                            )
+            self.log("ERROR", f"Failed to load reference spectra from {self.referenceSpectraPath}. Error: {e}")
 
     def handleMessage(self,message):
         """
