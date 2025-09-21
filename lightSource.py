@@ -7,28 +7,26 @@ https://creativecommons.org/licenses/by-sa/4.0/
 import time
 from rpi_ws281x import PixelStrip,Color
 from module     import Module
+from configLoader import ConfigLoader
 
 class LightSource(Module):
     """
     Manages an RGB LED (e.g.,NeoPixel).
     Inherits from the base Module class.
     """
-    def __init__(self,config,networkConfig,systemConfig):
+    def __init__(self,networkConfig,systemConfig):
         """
         Initializes the LightSource module.
-
-        Args:
-            config (dict): Module-specific configuration.
-            network_config (dict): Network configuration for the base Module.
-            system_config (dict): System-wide configuration for the base Module.
         """
+        config_loader = ConfigLoader()
+        full_config = config_loader.get_config()
+
         super().__init__("LightSource",networkConfig,systemConfig)
-        self.config     = config
-        self.pin        = self.config['pin']
-        self.dma        = self.config['dma']
+        self.pin        = full_config['pin']
+        self.dma        = full_config['dma']
         # The library wants a value from 0-255
-        self.brightness = int(self.config['brightness'] * 255)
-        self.pwmChannel = self.config['pwm_channel']
+        self.brightness = int(full_config['brightness'] * 255)
+        self.pwmChannel = full_config['pwm_channel']
         self.led        = None
         self.whiteColor = Color(255,255,255)
 

@@ -8,6 +8,7 @@ import numpy
 import time
 import cv2
 import base64
+import json
 from picamera2 import Picamera2
 from threading import Thread
 from module    import Module
@@ -17,10 +18,12 @@ class Camera(Module):
     Manages the PiCamera.
     Inherits from the base Module class.
     """
-    def __init__(self,config,networkConfig,systemConfig):
+    def __init__(self,networkConfig,systemConfig):
         super().__init__("Camera",networkConfig,systemConfig)
         self.camera = None
-        self.config = config
+        with open('config.json', 'r') as f:
+            full_config = json.load(f)
+        self.config = full_config['modules']['camera']
 
     def onStart(self):
         """
@@ -194,6 +197,21 @@ class Camera(Module):
                     "b": best_settings["light"]["b"]
                 })
                 self.sendMessage("LightSource", "Dim", {"brightness": best_settings["light"]["brightness"]})
+
+                # Update config in memory
+                self.config.update(best_settings)
+
+                # Save config to file
+                try:
+                    with open('config.json', 'r+') as f:
+                        data = json.load(f)
+                        data['modules']['camera'].update(best_settings)
+                        f.seek(0)
+                        json.dump(data, f, indent=2)
+                        f.truncate()
+                    self.log("INFO", "Calibration settings saved to config.json.")
+                except (IOError, json.JSONDecodeError) as e:
+                    self.log("ERROR", f"Could not save calibration settings to config.json: {e}")
 
                 self.log("INFO", f"Calibration complete. Best settings found: {best_settings}")
                 self.sendMessage("All", "CameraCalibrated", {"status": "success", "settings": best_settings})

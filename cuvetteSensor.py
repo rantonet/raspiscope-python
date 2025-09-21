@@ -10,21 +10,27 @@ import json
 from gpiozero     import InputDevice,GPIOZeroError
 from threading    import Thread
 from module       import Module
+from configLoader import ConfigLoader
 
 class CuvetteSensor(Module):
     """
     Detects the presence of the cuvette using a Hall effect sensor.
     Inherits from the base Module class.
     """
-    def __init__(self,config,networkConfig,systemConfig):
+    def __init__(self,networkConfig,systemConfig):
+        config_loader = ConfigLoader()
+        full_config = config_loader.get_config()
+        config = full_config.get("modules", {}).get("cuvetteSensor")
+
         super().__init__("CuvetteSensor",networkConfig,systemConfig)
-        self.config            = config
-        self.inputPin          = self.config['pin']
+        self.inputPin          = config['pin']
         self.sensor            = None
         self.presenceThreshold = 0
-        self.thresholdSpan     = self.config['calibration']['threshold_span']
-        self.pollInterval      = self.config['poll_interval_s']
+        self.thresholdSpan     = config['calibration']['threshold_span']
+        self.pollInterval      = config['poll_interval_s']
         self.isPresent         = False
+        self.numSamples        = config['calibration']['samples']
+
 
     def onStart(self):
         """
@@ -77,11 +83,10 @@ class CuvetteSensor(Module):
             self.sendMessage("All", "CalibrationError", {"message": "Cannot calibrate: sensor not initialized."})
             return
 
-        numSamples = self.config['calibration']['samples']
-        self.sendMessage("All", "CalibrationStarted", {"message": f"Starting cuvette sensor calibration ({numSamples} samples)..."})
+        self.sendMessage("All", "CalibrationStarted", {"message": f"Starting cuvette sensor calibration ({self.numSamples} samples)..."})
         samples = []
         try:
-            for _ in range(numSamples):
+            for _ in range(self.numSamples):
                 samples.append(self.sensor.value)
                 time.sleep(0.01)
 
@@ -90,16 +95,12 @@ class CuvetteSensor(Module):
                 self.thresholdSpan = (max(samples) - min(samples)) / 2
                 self.presenceThreshold = meanValue - self.thresholdSpan
 
-                # Update config in memory
-                self.config['calibration']['threshold_span'] = self.thresholdSpan
-                self.config['calibration']['presence_threshold'] = self.presenceThreshold
-
                 # Save config to file
                 try:
                     with open('config.json', 'r+') as f:
                         data = json.load(f)
-                        data['modules']['cuvetteSensor']['calibration']['threshold_span'] = self.thresholdSpan
-                        data['modules']['cuvetteSensor']['calibration']['presence_threshold'] = self.presenceThreshold
+                        data['modules']['cuvetteSensor']['threshold_span']     = self.thresholdSpan
+                        data['modules']['cuvetteSensor']['presence_threshold'] = self.presenceThreshold
                         f.seek(0)
                         json.dump(data, f, indent=2)
                         f.truncate()
