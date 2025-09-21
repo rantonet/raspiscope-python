@@ -1,10 +1,21 @@
 @startuml Boot activity
 start
 :Load configuration;
-:Set the camera;
-:Calibrate the camera;
-:Set the light;
-:Calibrate the light;
+:Load Event Manager;
+:Start Event Manager;
+fork
+    :Load Logger module;
+    :Start Logger module;
+fork again
+    :Load Camera module;
+    :Start Camera module;
+fork again
+    :Load Light Source module;
+    :Start Light Source module;
+fork again
+    :Load Cuvette Sensor module;
+    :Start Cuvette Sensor module;
+end merge
 if (Is the first boot ever?) then (yes)
     :Get the spectrographs database;
 else (no)

@@ -1,0 +1,9 @@
+@startuml Modules Communications
+CuvetteSensor -> All      : Cuvette present
+CuvetteSensor -> Logger   : Cuvette present
+Camera        -> Analysis : Picture took with image
+Camera        -> Logger   : Picture took
+Analysis      -> UI       : Send spectrograph\nand material name
+Analysis      -> Logger   : Spectrogram sent
+CuvetteSensor -> All      : Cuvette not present
+@enduml

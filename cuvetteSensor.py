@@ -6,6 +6,7 @@ https://creativecommons.org/licenses/by-sa/4.0/
 
 import time
 import statistics
+import json
 from gpiozero     import InputDevice,GPIOZeroError
 from threading    import Thread
 from module       import Module
@@ -86,7 +87,26 @@ class CuvetteSensor(Module):
 
             if samples:
                 meanValue = statistics.mean(samples)
+                self.thresholdSpan = (max(samples) - min(samples)) / 2
                 self.presenceThreshold = meanValue - self.thresholdSpan
+
+                # Update config in memory
+                self.config['calibration']['threshold_span'] = self.thresholdSpan
+                self.config['calibration']['presence_threshold'] = self.presenceThreshold
+
+                # Save config to file
+                try:
+                    with open('config.json', 'r+') as f:
+                        data = json.load(f)
+                        data['modules']['cuvetteSensor']['calibration']['threshold_span'] = self.thresholdSpan
+                        data['modules']['cuvetteSensor']['calibration']['presence_threshold'] = self.presenceThreshold
+                        f.seek(0)
+                        json.dump(data, f, indent=2)
+                        f.truncate()
+                    self.log("INFO", "Calibration settings saved to config.json.")
+                except (IOError, json.JSONDecodeError) as e:
+                    self.log("ERROR", f"Could not save calibration settings to config.json: {e}")
+
                 self.sendMessage("All", "CalibrationComplete", {"threshold": self.presenceThreshold, "message": "Calibration complete."})
             else:
                 self.sendMessage("All", "CalibrationError", {"message": "No samples collected during calibration."})

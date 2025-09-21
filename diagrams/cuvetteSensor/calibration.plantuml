@@ -1,0 +1,14 @@
+@startuml Cuvette Sensor Calibration
+start
+while (i < n)
+    floating note right: i is the index of the for loop
+    floating note right: n is the number of iterations
+    :Get sensor value;
+    :Add value to array;
+endwhile
+:Compute threshold span from array values;
+:Compute mean value from array values;
+:Save threshold value;
+:Save mean value;
+stop
+@enduml
