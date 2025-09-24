@@ -18,15 +18,14 @@ class EventManager:
         """
         Initializes the EventManager.
         """
-        configLoader     = ConfigLoader(configPath)
-        self.config       = configLoader.get_config()
-        
-        self.name             = "EventManager"
-        networkConfig         = self.config['network']
-        self.communicator     = Communicator("server",name=self.name,config=networkConfig)
-        self.runningProcesses = []
+        configLoader            = ConfigLoader(configPath)
+        config                  = configLoader.get_config()
+        networkConfig           = config['network']
+        self.name               = "EventManager"
+        self.communicator       = Communicator("server",name=self.name,config=networkConfig)
+        self.runningProcesses   = []
         self.registered_modules = {}
-        self._stopEvent       = Event()
+        self._stopEvent         = Event()
 
     def run(self):
         """Starts the communication server and all module processes."""

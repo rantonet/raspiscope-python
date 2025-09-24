@@ -21,9 +21,13 @@ class Camera(Module):
     def __init__(self,networkConfig,systemConfig):
         super().__init__("Camera",networkConfig,systemConfig)
         self.camera = None
+        full_config = None
         with open('config.json', 'r') as f:
             full_config = json.load(f)
-        self.config = full_config['modules']['camera']
+        self.resolution = full_config['modules']['camera']['resolution']
+        self.gain       = full_config['modules']['camera']['gain']
+        self.exposure   = full_config['modules']['camera']['exposure']
+
 
     def onStart(self):
         """
@@ -32,9 +36,7 @@ class Camera(Module):
         self.sendMessage("EventManager", "Register")
         try:
             self.camera = Picamera2()
-            # La risoluzione viene letta direttamente dalla configurazione iniettata
-            resolution = tuple(self.config['resolution'])
-            camConfig  = self.camera.create_still_configuration({"size": resolution})
+            camConfig  = self.camera.create_still_configuration({"size": self.resolution,"gain" : self.gain,"exposure" : self.exposure})
             self.camera.configure(camConfig)
             self.camera.start()
             self.log("INFO",f"Camera started and configured with resolution {resolution}.")

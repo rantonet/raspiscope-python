@@ -5,8 +5,8 @@ https://creativecommons.org/licenses/by-sa/4.0/
 """
 
 import time
-from rpi_ws281x import PixelStrip,Color
-from module     import Module
+from rpi_ws281x   import PixelStrip,Color
+from module       import Module
 from configLoader import ConfigLoader
 
 class LightSource(Module):
@@ -29,6 +29,12 @@ class LightSource(Module):
         self.pwmChannel = full_config['pwm_channel']
         self.led        = None
         self.whiteColor = Color(255,255,255)
+        self.r          = full_config['r']
+        self.g          = full_config['g']
+        self.b          = full_config['b']
+        self.color      = (self.r,self.g,self.b)
+        self.is_on      = False
+
 
     def onStart(self):
         """
@@ -69,27 +75,8 @@ class LightSource(Module):
                 self.dim(newBrightness)
             else:
                 self.log("WARNING",f"'Dim' command received with invalid payload: {payload}")
-        elif msgType == "Calibrate":
-            if 'r' in payload and 'g' in payload and 'b' in payload:
-                self.calibrate(payload)
-            else:
-                self.log("WARNING",f"'Calibrate' command received with incomplete payload: {payload}")
-
-    def _calculateColor(self):
-        """
-        Helper method to calculate the final color to apply to the LED,
-        taking RGB calibration into account.
-        """
-        r = int(self.base_color * self.rgb_calibration)
-        g = int(self.base_color[1] * self.rgb_calibration[1])
-        b = int(self.base_color * self.rgb_calibration)
-
-        # Ensures the values are within the  range
-        r = max(0,min(255,r))
-        g = max(0,min(255,g))
-        b = max(0,min(255,b))
-
-        return Color(r,g,b)
+        elif msgType == "SetColor":
+            self.setColor(payload.get("r"),payload.get("g"),payload.get("b"))
 
     def turnOn(self):
         """
@@ -99,8 +86,7 @@ class LightSource(Module):
         self.log("INFO","Turning on light source...")
         self.sendMessage("All","TurningOn")
 
-        finalColor = self._calculateColor()
-        self.led.setPixelColor(0,finalColor)
+        self.led.setPixelColor(0,self.color)
         self.led.show()
         self.is_on = True
 
@@ -160,7 +146,9 @@ class LightSource(Module):
             return
 
         self.log("INFO", f"Setting LED color to R:{r}, G:{g}, B:{b}...")
-        self.led.setPixelColor(0, Color(r, g, b))
+        self.r, self.g, self.b = r, g, b
+        self.color = (r, g, b)
+        self.led.setPixelColor(0,self.color)
         self.led.show()
         self.is_on = True
 

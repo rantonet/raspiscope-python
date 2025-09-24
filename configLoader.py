@@ -21,7 +21,7 @@ class ConfigLoader:
             config_path (str): The path to the JSON configuration file.
         """
         self._config_path = config_path
-        self._config = None
+        self._config      = None
         self._load()
 
     def _load(self):
