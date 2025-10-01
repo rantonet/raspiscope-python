@@ -1,25 +1,23 @@
 name: Python Unit Tests
 on:
   workflow_dispatch:
-  create:
   pull_request:
     branches: [ tests ]
 jobs:
   build-and-test:
-    if: ${{ contains(github.ref, 'refs/heads/tests') }}
     runs-on: self-hosted
     steps:
     - name: Install System Dependencies
       run: |
         echo "Installing system dependencies"
         sudo apt-get update
-        sudo apt-get install -y libcap-dev libcamera-dev
+        sudo apt-get install -y python3-picamera2 libcap-dev libcamera-dev
     - name: Checkout Code
       uses: actions/checkout@v4
     - name: Install Dependencies and Run Tests
       run: |
         echo "Setting up and starting Python Virtual Environment..." 
-        python3 -m venv .venv
+        python3 -m venv --system-site-packages .venv
         source .venv/bin/activate
         echo "Upgrading pip..."
         .venv/bin/python -m pip install --upgrade pip
