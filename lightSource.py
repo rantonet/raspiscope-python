@@ -11,7 +11,7 @@ from configLoader import ConfigLoader
 
 class LightSource(Module):
     """
-    Manages an RGB LED (e.g.,NeoPixel).
+    Manages an RGB LED
     Inherits from the base Module class.
     """
     def __init__(self,networkConfig,systemConfig):

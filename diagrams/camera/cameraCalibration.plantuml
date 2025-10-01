@@ -1,7 +1,10 @@
 @startuml Camera Calibration
+<style>
+element{ HorizontalAlignment:center; }
+</style>
 start
-:Get Gain List;
-:Get Exposure List;
+:Get\nGain\nList;
+:Get\nExposure\nList;
 :Get Brightness;
 while (Calibrated) is (no)
     while (Light in Lights-List)
@@ -9,22 +12,22 @@ while (Calibrated) is (no)
         while (Color in Colors-List)
             :Set Color;
             while (Gain in Gain-List)
-                :Set camera Gain;
+                :Set \namera\nGain;
                 while (Exposure in Exposure-List)
-                    :Set camera Exposure;
+                    :Set\ncamera\nExposure;
                     while (Brightness in Brightness-List)
-                        :Set camera Brightness;
-                        :Create Settings-array with Gain, Exposure and Brightness;
+                        :Set\ncamera\nBrightness;
+                        :Create\nSettings array\nwith\nGain, Exposure and Brightness;
                         :Get picture;
                         :Compute gradient;
-                        :Add Settings-array and gradient to array;
+                        :Add\nSettings array and gradient\nto array;
                     endwhile (no)
                 endwhile (no)
             endwhile (no)
         endwhile (no)
     endwhile (no)
 endwhile (yes)
-:Find settings with highest gradient;
+:Find\nsettings\nwith\nhighest gradient;
 :Save those settings;
 stop
 @enduml

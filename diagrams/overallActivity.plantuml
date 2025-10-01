@@ -1,14 +1,14 @@
 @startuml Spectrometer activity flow
+<style>
+element{ HorizontalAlignment:center; }
+</style>
 start
-while (stop signal?) is (no)
-    if (Cuvette present?) then (yes)
-        :Start camera;
-        :Get picture;
-        :Analyze spectrograph;
-        :Return spectrograph\nand solution composition;
-        while (cuvette still present?) is (yes)
-            :Wait for cuvette release;
-        endwhile (no)
+while (Stop\nsignal?) is (no)
+    if (Cuvette\npresent?) then (yes)
+        :Start\ncamera;
+        :Get\npicture;
+        :Analyze\nspectrograph;
+        :Send\nspectrograph\nand\nsolution composition;
     else (no)
     endif
 endwhile (yes)

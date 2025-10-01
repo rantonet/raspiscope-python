@@ -2,9 +2,9 @@
 start
 while (stop signal?) is (no)
 if (presence sensed) then (yes)
-    :Broadcast "cuvette present" event;
+    :Broadcast\n"cuvette present"\nevent;
 elseif (remove sensed) then (yes)
-    :Broadcast "cuvette removed" event;
+    :Broadcast\n"cuvette removed"\nevent;
 endif
 endwhile (yes)
 stop

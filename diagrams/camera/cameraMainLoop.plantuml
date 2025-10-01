@@ -1,9 +1,12 @@
 @startuml Camera Main Loop
+<style>
+element{ HorizontalAlignment:center; }
+</style>
 start
 while (Stop request received) is (no)
     if (Take Picture event received) then (yes)
         :Take picture;
-        :Send picture thru picture event to requiring module;
+        :Send\npicture\nthru picture event\nto requiring module;
     endif
 endwhile (received)
 stop
