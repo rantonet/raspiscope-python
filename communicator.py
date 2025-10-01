@@ -49,14 +49,14 @@ class Communicator:
         instance is a server or a client.
         """
         if self.commType == "server":
-            self._initializeServer()
+            self._initializeServer(stopEvent)
             self._runServer(stopEvent)
         elif self.commType == "client":
             self._runClient(stopEvent)
         else:
             self.log("ERROR",f"Unknown communicator type '{self.commType}'")
 
-    def _initializeServer(self):
+    def _initializeServer(self, stopEvent):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.settimeout(1.0)  # To allow graceful exit
@@ -310,6 +310,9 @@ class Communicator:
                             }
         }
         try:
-            self.outgoingQueue.put(log_message)
+            if self.commType == "server":
+                self.outgoingQueue.put(("Logger", log_message))
+            else:
+                self.outgoingQueue.put(log_message)
         except Full:
             pass
