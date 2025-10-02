@@ -1,15 +1,22 @@
+"""
+Author: Antlampas
+CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0/
+"""
+
 import time
 import json
 import asyncio
 import websockets
-from module import Module
+from module       import Module
+from configLoader import ConfigLoader
 
 class Logger(Module):
     """
     Manages centralized logging by receiving messages from other modules
     and routing them to a specified destination (stdout, file, or WebSocket).
     """
-    def __init__(self,config,networkConfig,systemConfig):
+    def __init__(self,networkConfig,systemConfig):
         """
         Initializes the Logger module. The output destination is configured
         in the 'config.json' file under 'modules.logger.destination'.
@@ -23,14 +30,15 @@ class Logger(Module):
           'path' parameter in the configuration.
         - "websocket": Sends logs to a remote server via WebSocket. The
           connection details are specified in the 'network' parameter.
-
-        Args:
-            config (dict): Module-specific configuration for the logger.
-            networkConfig (dict): General network configuration for the base Module.
-            systemConfig (dict): System-wide configuration.
         """
+        config_loader = ConfigLoader()
+        full_config = config_loader.get_config()
+    
+        networkConfig = full_config.get("network")
+        systemConfig = full_config.get("system")
+        self.config = full_config.get("modules", {}).get("logger")
+
         super().__init__("Logger",networkConfig,systemConfig)
-        self.config = config
         
         # Ensure destination is always a list for uniform handling
         dest = self.config.get("destination","stdout")
@@ -45,19 +53,20 @@ class Logger(Module):
         """
         Initializes the logger based on the destination configuration.
         """
+        self.sendMessage("EventManager", "Register")
         if "file" in self.destinations:
             try:
                 self.log_file = open(self.config.get("path","app.log"),"a")
-                print("Logger module configured to write to file.")
+                self.log("INFO","Logger module configured to write to file.")
             except Exception as e:
-                print(f"ERROR: Could not open log file. Reverting to stdout. Details: {e}")
+                self.log("ERROR",f"Could not open log file. Reverting to stdout. Details: {e}")
                 self.destinations = [d for d in self.destinations if d != "file"]
                 self.destinations.append("stdout")
                 self.log_file = None
         if "websocket" in self.destinations:
-            print("Logger module configured to send logs via WebSocket.")
+            self.log("INFO","Logger module configured to send logs via WebSocket.")
         if "stdout" in self.destinations:
-            print("Logger module configured to write to standard output.")
+            self.log("INFO","Logger module configured to write to standard output.")
 
     def handleMessage(self,message):
         """
@@ -103,5 +112,5 @@ class Logger(Module):
         Performs cleanup, such as closing the log file.
         """
         if "file" in self.destinations and self.log_file:
-            print("Closing log file.")
+            self.log("INFO","Closing log file.")
             self.log_file.close()

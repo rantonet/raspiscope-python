@@ -1,3 +1,9 @@
+"""
+Author: Antlampas
+CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0/
+"""
+
 import cv2
 import numpy
 import pandas
@@ -5,8 +11,8 @@ import time
 import base64
 import json
 from scipy.signal import find_peaks
-from threading import Thread
-from module import Module
+from threading    import Thread
+from module       import Module
 
 class Analysis(Module):
     """
@@ -23,36 +29,17 @@ class Analysis(Module):
     def onStart(self):
         """
         Method called when the module starts.
-        Loads the reference data.
+        Loads the reference data and registers with the EventManager.
         """
+        self.sendMessage("EventManager", "Register")
         try:
             self.referenceSpectra = pandas.read_csv(self.referenceSpectraPath)
             self.referenceSpectra.set_index('wavelength',inplace=True)
-            self.sendMessage("All",
-                             "AnalysisInitialized",
-                             {
-                                "path"   : self.referenceSpectraPath,
-                                "status" : "success"
-                             }
-                            )
+            self.log("INFO", f"Reference spectra loaded successfully from {self.referenceSpectraPath}.")
         except FileNotFoundError:
-            self.sendMessage("All",
-                             "AnalysisInitialized",
-                             {
-                                "path"    : self.referenceSpectraPath,
-                                "status"  : "error",
-                                "message" : "Reference file not found"
-                             }
-                            )
+            self.log("ERROR", f"Reference file not found at {self.referenceSpectraPath}. Analysis module will not work correctly.")
         except Exception as e:
-            self.sendMessage("All",
-                             "AnalysisInitialized",
-                             {
-                                "path"    : self.referenceSpectraPath,
-                                "status"  : "error",
-                                "message" : str(e)
-                             }
-                            )
+            self.log("ERROR", f"Failed to load reference spectra from {self.referenceSpectraPath}. Error: {e}")
 
     def handleMessage(self,message):
         """
@@ -92,7 +79,7 @@ class Analysis(Module):
         Args:
             imageData (numpy.ndarray): The pixel matrix of the color image.
         """
-        print("Starting absorption spectrogram analysis...")
+        self.log("INFO","Starting absorption spectrogram analysis...")
         
         try:
             # Phase 1: Data Extraction and Pre-processing
@@ -193,7 +180,7 @@ class Analysis(Module):
                 if numpy.isclose(estimatedWavelengthNm,refWavelength,atol=self.toleranceNm):
                     substance = row['substance']
                     if substance not in identifiedSubstances:
-                        print(f"Substance '{substance}' identified! Wavelength: {estimatedWavelengthNm:.2f} nm.")
+                        self.log("INFO",f"Substance '{substance}' identified! Wavelength: {estimatedWavelengthNm:.2f} nm.")
                         identifiedSubstances.add(substance)
 
                     results["detected_peaks"].append({
@@ -220,4 +207,4 @@ class Analysis(Module):
             results (dict): The dictionary of analysis results.
         """
         self.sendMessage("All","AnalysisComplete",results)
-        print("Analysis complete and results sent.")
+        self.log("INFO","Analysis complete and results sent.")

@@ -12,8 +12,11 @@
       "enabled": true,
       "pin": 18,
       "dma": 10,
-      "brightness": 0.5,
-      "pwm_channel": 0
+      "pwm_channel": 0,
+      "r" : 0,
+      "g" : 0,
+      "b" : 0,
+      "brightness": 0.5
     },
     "cuvetteSensor": {
       "enabled": true,
@@ -26,10 +29,9 @@
     },
     "camera": {
       "enabled": true,
-      "resolution": [
-        1920,
-        1080
-      ]
+      "resolution": [1920,1080],
+      "gain" : 0,
+      "exposure" : 10
     },
     "analysis": {
       "enabled": true,

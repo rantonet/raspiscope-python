@@ -1,7 +1,0 @@
-@startuml Camera Calibration
-start
-while (Calibrated) is (no)
-    :Do calibration
-endwhile (yes)
-end
-@enduml

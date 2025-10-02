@@ -1,35 +1,46 @@
+"""
+Author: Antlampas
+CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0/
+"""
+
 import time
-from rpi_ws281x import PixelStrip,Color
-from module import Module
+from rpi_ws281x   import PixelStrip,Color
+from module       import Module
+from configLoader import ConfigLoader
 
 class LightSource(Module):
     """
-    Manages an RGB LED (e.g.,NeoPixel).
+    Manages an RGB LED
     Inherits from the base Module class.
     """
-    def __init__(self,config,networkConfig,systemConfig):
+    def __init__(self,networkConfig,systemConfig):
         """
         Initializes the LightSource module.
-
-        Args:
-            config (dict): Module-specific configuration.
-            network_config (dict): Network configuration for the base Module.
-            system_config (dict): System-wide configuration for the base Module.
         """
+        config_loader = ConfigLoader()
+        full_config = config_loader.get_config()
+
         super().__init__("LightSource",networkConfig,systemConfig)
-        self.config     = config
-        self.pin        = self.config['pin']
-        self.dma        = self.config['dma']
+        self.pin        = full_config['pin']
+        self.dma        = full_config['dma']
         # The library wants a value from 0-255
-        self.brightness = int(self.config['brightness'] * 255)
-        self.pwmChannel = self.config['pwm_channel']
+        self.brightness = int(full_config['brightness'] * 255)
+        self.pwmChannel = full_config['pwm_channel']
         self.led        = None
         self.whiteColor = Color(255,255,255)
+        self.r          = full_config['r']
+        self.g          = full_config['g']
+        self.b          = full_config['b']
+        self.color      = (self.r,self.g,self.b)
+        self.is_on      = False
+
 
     def onStart(self):
         """
         Initializes the LED strip.
         """
+        self.sendMessage("EventManager", "Register")
         try:
             # The rpi_ws281x library requires root privileges to run
             self.led = PixelStrip(
@@ -37,9 +48,9 @@ class LightSource(Module):
             )
             self.led.begin()
             self.turnOff() # Ensure the LED is off on startup
-            print("Light source initialized.")
+            self.log("INFO","Light source initialized.")
         except Exception as e:
-            print(f"ERROR: Could not initialize light source. Run as root? Details: {e}")
+            self.log("ERROR",f"Could not initialize light source. Run as root? Details: {e}")
             self.led = None
 
     def handleMessage(self,message):
@@ -48,7 +59,7 @@ class LightSource(Module):
         Acts as a dispatcher that invokes the appropriate methods.
         """
         if not self.led:
-            print("Light source not available,command ignored.")
+            self.log("WARNING","Light source not available,command ignored.")
             return
 
         msgType = message.get("Message",{}).get("type")
@@ -63,44 +74,24 @@ class LightSource(Module):
             if isinstance(newBrightness,int) and 0 <= newBrightness <= 255:
                 self.dim(newBrightness)
             else:
-                print(f"'Dim' command received with invalid payload: {payload}")
-        elif msgType == "Calibrate":
-            if 'r' in payload and 'g' in payload and 'b' in payload:
-                self.calibrate(payload)
-            else:
-                print(f"'Calibrate' command received with incomplete payload: {payload}")
-
-    def _calculateColor(self):
-        """
-        Helper method to calculate the final color to apply to the LED,
-        taking RGB calibration into account.
-        """
-        r = int(self.base_color * self.rgb_calibration)
-        g = int(self.base_color[1] * self.rgb_calibration[1])
-        b = int(self.base_color * self.rgb_calibration)
-
-        # Ensures the values are within the  range
-        r = max(0,min(255,r))
-        g = max(0,min(255,g))
-        b = max(0,min(255,b))
-
-        return Color(r,g,b)
+                self.log("WARNING",f"'Dim' command received with invalid payload: {payload}")
+        elif msgType == "SetColor":
+            self.setColor(payload.get("r"),payload.get("g"),payload.get("b"))
 
     def turnOn(self):
         """
         Turns the LED on. Emits events before and after the action.
         """
         if not self.led: return
-        print("Turning on light source...")
+        self.log("INFO","Turning on light source...")
         self.sendMessage("All","TurningOn")
 
-        finalColor = self._calculateColor()
-        self.led.setPixelColor(0,finalColor)
+        self.led.setPixelColor(0,self.color)
         self.led.show()
         self.is_on = True
 
         self.sendMessage("All","TurnedOn")
-        print("Light source turned on.")
+        self.log("INFO","Light source turned on.")
 
     def turnOff(self,initial=False):
         """
@@ -111,7 +102,7 @@ class LightSource(Module):
         """
         if not self.led: return
         if not initial:
-            print("Turning off light source...")
+            self.log("INFO","Turning off light source...")
             self.sendMessage("All","TurningOff")
 
         self.led.setPixelColor(0,Color(0,0,0))
@@ -120,7 +111,7 @@ class LightSource(Module):
 
         if not initial:
             self.sendMessage("All","TurnedOff")
-            print("Light source turned off.")
+            self.log("INFO","Light source turned off.")
 
     def dim(self,brightness):
         """
@@ -130,7 +121,7 @@ class LightSource(Module):
             brightness (int): New brightness level (0-255).
         """
         if not self.led: return
-        print(f"Adjusting brightness to {brightness}...")
+        self.log("INFO",f"Adjusting brightness to {brightness}...")
         self.sendMessage("All","Dimming",{"brightness": brightness})
 
         self.brightness = brightness
@@ -139,42 +130,35 @@ class LightSource(Module):
             self.led.show() # Immediately applies the new brightness if the LED is on
 
         self.sendMessage("All","Dimmed",{"brightness": self.brightness})
-        print(f"Brightness set to {self.brightness}.")
+        self.log("INFO",f"Brightness set to {self.brightness}.")
 
-    def calibrate(self,factors):
+    def setColor(self, r, g, b):
         """
-        Applies calibration factors to the RGB channels.
+        Sets the RGB color of the LED.
 
         Args:
-            factors (dict): A dictionary with 'r','g','b' factors.
+            r (int): The red color component (0-255).
+            g (int): The green color component (0-255).
+            b (int): The blue color component (0-255).
         """
-        if not self.led: return
-        print(f"Applying calibration: {factors}...")
-        self.sendMessage("All","Calibrating",factors)
+        if not self.led:
+            self.log("WARNING", "Cannot set color, light source not available.")
+            return
 
-        self.rgb_calibration = (
-            float(factors.get('r',1.0)),
-            float(factors.get('g',1.0)),
-            float(factors.get('b',1.0))
-        )
+        self.log("INFO", f"Setting LED color to R:{r}, G:{g}, B:{b}...")
+        self.r, self.g, self.b = r, g, b
+        self.color = (r, g, b)
+        self.led.setPixelColor(0,self.color)
+        self.led.show()
+        self.is_on = True
 
-        if self.is_on:
-            # If the LED is on,immediately apply the new calibrated color
-            finalColor = self._calculateColor()
-            self.led.setPixelColor(0,finalColor)
-            self.led.show()
-
-        self.sendMessage("All","Calibrated",{
-            "r": self.rgb_calibration,
-            "g": self.rgb_calibration[1],
-            "b": self.rgb_calibration
-        })
-        print(f"Calibration applied. New factors: {self.rgb_calibration}")
+        self.sendMessage("All", "ColorSet", {"r": r, "g": g, "b": b})
+        self.log("INFO", "LED color set successfully.")
 
     def onStop(self):
         """
         Ensures the LED is turned off when the module terminates.
         """
-        print("Stopping LightSource module...")
+        self.log("INFO","Stopping LightSource module...")
         if self.led:
             self.turnOff(initial=True) # Turns off without sending events

@@ -1,3 +1,9 @@
+"""
+Author: Antlampas
+CC BY-SA 4.0
+https://creativecommons.org/licenses/by-sa/4.0/
+"""
+
 import json
 import time
 from threading    import Thread, Event
@@ -37,8 +43,8 @@ class Module:
 
         self.onStart()
         self.mainLoop()
-        
         self.onStop()
+        
         if self.communicatorThread:
             self.communicatorThread.join()
         self.log("INFO",f"Module '{self.name}' terminated.")
