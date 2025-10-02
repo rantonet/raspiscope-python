@@ -1,11 +1,30 @@
-
 import unittest
 from unittest.mock import MagicMock, patch, call
 from queue import Queue, Empty
 from threading import Event
 import time
+import signal
+from functools import wraps
 
 from eventManager import EventManager
+
+def timeout(seconds):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            def handle_timeout(signum, frame):
+                raise TimeoutError(f"Test timed out after {seconds} seconds")
+            
+            signal.signal(signal.SIGALRM, handle_timeout)
+            signal.alarm(seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+        return wrapper
+    return decorator
 
 class TestEventManager(unittest.TestCase):
 
@@ -27,6 +46,7 @@ class TestEventManager(unittest.TestCase):
         # Instantiate EventManager
         self.eventManager = EventManager(configPath="dummy_path.json")
 
+    @timeout(60)
     def test_initialization(self):
         """
         Tests if the EventManager is initialized correctly.
@@ -37,6 +57,7 @@ class TestEventManager(unittest.TestCase):
         self.assertEqual(self.eventManager.registered_modules, {})
         self.assertIsInstance(self.eventManager._stopEvent, Event)
 
+    @timeout(60)
     @patch('time.time', return_value=1234567890)
     def test_handleRegistration(self, mockTime):
         """
@@ -56,6 +77,7 @@ class TestEventManager(unittest.TestCase):
         logCall = self.mockCommInstance.outgoingQueue.put.call_args[0][0]
         self.assertIn("Registering new module", logCall[1]['Message']['payload']['message'])
 
+    @timeout(60)
     def test_handleRegistrationAlreadyRegistered(self):
         """
         Tests that re-registering an existing module logs a warning.
@@ -70,6 +92,7 @@ class TestEventManager(unittest.TestCase):
         logCall = self.mockCommInstance.outgoingQueue.put.call_args[0][0]
         self.assertIn("is already registered", logCall[1]['Message']['payload']['message'])
 
+    @timeout(60)
     def test_handleUnregistration(self):
         """
         Tests the unregistration of a module.
@@ -85,6 +108,7 @@ class TestEventManager(unittest.TestCase):
         logCall = self.mockCommInstance.outgoingQueue.put.call_args[0][0]
         self.assertIn("Unregistering module", logCall[1]['Message']['payload']['message'])
 
+    @timeout(60)
     def test_handleUnregistrationNotRegistered(self):
         """
         Tests that unregistering a non-existent module logs a warning.
@@ -97,6 +121,7 @@ class TestEventManager(unittest.TestCase):
         logCall = self.mockCommInstance.outgoingQueue.put.call_args[0][0]
         self.assertIn("not found for unregistration", logCall[1]['Message']['payload']['message'])
 
+    @timeout(60)
     def test_routeMessageToModule(self):
         """
         Tests that a message for another module is routed to the outgoing queue.
@@ -110,6 +135,7 @@ class TestEventManager(unittest.TestCase):
         routedMessage = self.mockCommInstance.outgoingQueue.get()
         self.assertEqual(routedMessage, ("ModuleB", message))
 
+    @timeout(60)
     def test_routeRegisterMessage(self):
         """
         Tests that a 'register' message is handled by _handleRegistration.
@@ -121,6 +147,7 @@ class TestEventManager(unittest.TestCase):
             self.eventManager.route()
             mockHandleReg.assert_called_once_with("NewModule")
 
+    @timeout(60)
     def test_routeUnregisterMessage(self):
         """
         Tests that an 'unregister' message is handled by _handleUnregistration.
@@ -132,6 +159,7 @@ class TestEventManager(unittest.TestCase):
             self.eventManager.route()
             mockHandleUnreg.assert_called_once_with("OldModule")
 
+    @timeout(60)
     def test_routeStopMessage(self):
         """
         Tests that a 'Stop' message for the EventManager calls the stop method.
@@ -143,6 +171,7 @@ class TestEventManager(unittest.TestCase):
             self.eventManager.route()
             mockStop.assert_called_once()
 
+    @timeout(60)
     def test_routeEmptyQueue(self):
         """
         Tests that route handles an empty queue without error.
@@ -153,6 +182,7 @@ class TestEventManager(unittest.TestCase):
         except Exception as e:
             self.fail(f"route() raised {e.__class__.__name__} unexpectedly!")
 
+    @timeout(60)
     def test_stop(self):
         """
         Tests that the stop method sets the internal stop event.
@@ -161,6 +191,7 @@ class TestEventManager(unittest.TestCase):
         self.eventManager.stop()
         self.assertTrue(self.eventManager._stopEvent.is_set())
 
+    @timeout(60)
     def test_cleanup(self):
         """
         Tests the cleanup procedure.
@@ -190,6 +221,7 @@ class TestEventManager(unittest.TestCase):
         # Check that terminate was NOT called on the dead process
         mockProcess2.terminate.assert_not_called()
 
+    @timeout(60)
     def test_log(self):
         """
         Tests the log method to ensure it queues a correctly formatted log message.
@@ -208,6 +240,3 @@ class TestEventManager(unittest.TestCase):
         self.assertEqual(logMessage['Message']['type'], "LogMessage")
         self.assertEqual(logMessage['Message']['payload']['level'], level)
         self.assertEqual(logMessage['Message']['payload']['message'], message)
-
-if __name__ == '__main__':
-    unittest.main(argv=['first-arg-is-ignored'], exit=False)

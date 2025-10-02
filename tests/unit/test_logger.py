@@ -1,8 +1,27 @@
-
 import unittest
 from unittest.mock import MagicMock, patch, mock_open, call
 import json
 import time
+import signal
+from functools import wraps
+
+def timeout(seconds):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            def handle_timeout(signum, frame):
+                raise TimeoutError(f"Test timed out after {seconds} seconds")
+            
+            signal.signal(signal.SIGALRM, handle_timeout)
+            signal.alarm(seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+        return wrapper
+    return decorator
 
 # Mock the dependencies before importing the class under test
 from module import Module
@@ -30,6 +49,7 @@ class TestLogger(unittest.TestCase):
             self.mockCommunicator.return_value = self.mockCommInstance
             self.logger = Logger(self.mockConfig['network'], self.mockConfig['system'])
 
+    @timeout(60)
     def test_initializationSingleDestination(self):
         """
         Tests logger initialization with a single destination string.
@@ -38,6 +58,7 @@ class TestLogger(unittest.TestCase):
         self.assertIsInstance(self.logger.communicator, MagicMock)
         self.assertEqual(self.logger.destinations, ["stdout"])
 
+    @timeout(60)
     @patch('logger.ConfigLoader')
     def test_initializationMultipleDestinations(self, mockConfigLoader):
         """
@@ -49,6 +70,7 @@ class TestLogger(unittest.TestCase):
             logger = Logger(self.mockConfig['network'], self.mockConfig['system'])
             self.assertEqual(logger.destinations, ["file", "websocket"])
 
+    @timeout(60)
     @patch("builtins.open", new_callable=mock_open)
     def test_onStartFileDestination(self, mockFile):
         """
@@ -67,6 +89,7 @@ class TestLogger(unittest.TestCase):
         sentMessage = self.mockCommInstance.outgoingQueue.put.call_args[0][0]
         self.assertEqual(sentMessage['Destination'], 'EventManager')
 
+    @timeout(60)
     @patch("builtins.open", side_effect=IOError("Permission denied"))
     def test_onStartFileOpenError(self, mockFile):
         """
@@ -83,6 +106,7 @@ class TestLogger(unittest.TestCase):
         self.assertEqual(sentMessage['Message']['payload']['level'], 'ERROR')
         self.assertIn("Could not open log file", sentMessage['Message']['payload']['message'])
 
+    @timeout(60)
     @patch('time.strftime', return_value="2023-10-27 10:00:00")
     @patch('builtins.print')
     def test_handleMessageLogToStdout(self, mockPrint, mockTime):
@@ -102,6 +126,7 @@ class TestLogger(unittest.TestCase):
         expectedOutput = "[2023-10-27 10:00:00] [TestModule] (DEBUG): A debug message"
         mockPrint.assert_called_once_with(expectedOutput)
 
+    @timeout(60)
     @patch('time.strftime', return_value="2023-10-27 10:00:00")
     @patch("builtins.open", new_callable=mock_open)
     def test_handleMessageLogToFile(self, mockFile, mockTime):
@@ -133,6 +158,7 @@ class TestLogger(unittest.TestCase):
         mockFile().write.assert_any_call('\n')
         mockFile().flush.assert_called_once()
 
+    @timeout(60)
     @patch('time.strftime', return_value="2023-10-27 10:00:00")
     @patch('builtins.print')
     def test_handleMessageLogToWebsocket(self, mockPrint, mockTime):
@@ -152,6 +178,7 @@ class TestLogger(unittest.TestCase):
         expectedOutput = "[2023-10-27 10:00:00] [TestModule] (INFO): WebSocket test [Via WebSocket]"
         mockPrint.assert_called_once_with(expectedOutput)
 
+    @timeout(60)
     @patch('builtins.print')
     def test_handleNonLogMessage(self, mockPrint):
         """
@@ -165,6 +192,7 @@ class TestLogger(unittest.TestCase):
         self.logger.handleMessage(eventMessage)
         mockPrint.assert_called_once_with("[OtherModule] - Received event 'CustomEvent'")
 
+    @timeout(60)
     def test_onStopClosesFile(self):
         """
         Tests that onStop closes the log file if it is open.
@@ -174,6 +202,7 @@ class TestLogger(unittest.TestCase):
         self.logger.onStop()
         self.logger.log_file.close.assert_called_once()
 
+    @timeout(60)
     def test_onStopNoFile(self):
         """
         Tests that onStop does not error if the file is not open.
@@ -184,6 +213,3 @@ class TestLogger(unittest.TestCase):
             self.logger.onStop()
         except Exception as e:
             self.fail(f"onStop() raised an exception unexpectedly: {e}")
-
-if __name__ == '__main__':
-    unittest.main(argv=['first-arg-is-ignored'], exit=False)

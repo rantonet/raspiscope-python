@@ -1,8 +1,27 @@
-
 import unittest
 from unittest.mock import MagicMock, patch, mock_open, call
 import pandas
 import numpy
+import signal
+from functools import wraps
+
+def timeout(seconds):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            def handle_timeout(signum, frame):
+                raise TimeoutError(f"Test timed out after {seconds} seconds")
+            
+            signal.signal(signal.SIGALRM, handle_timeout)
+            signal.alarm(seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+        return wrapper
+    return decorator
 
 # Mock heavy dependencies before import
 mock_cv2 = MagicMock()
@@ -35,6 +54,7 @@ class TestAnalysis(unittest.TestCase):
             self.mockCommunicator.return_value = self.mockCommInstance
             self.analysisModule = Analysis(self.mockConfig, self.mockNetworkConfig, self.mockSystemConfig)
 
+    @timeout(60)
     def test_initialization(self):
         """
         Tests that the Analysis module is initialized correctly.
@@ -44,6 +64,7 @@ class TestAnalysis(unittest.TestCase):
         self.assertEqual(self.analysisModule.toleranceNm, 10)
         self.assertIsNone(self.analysisModule.referenceSpectra)
 
+    @timeout(60)
     def test_onStartSuccess(self):
         """
         Tests successful loading of reference spectra on start.
@@ -59,6 +80,7 @@ class TestAnalysis(unittest.TestCase):
         # Check for registration message
         self.mockCommInstance.outgoingQueue.put.assert_any_call(unittest.mock.ANY)
 
+    @timeout(60)
     def test_onStartFileNotFound(self):
         """
         Tests handling of FileNotFoundError on start.
@@ -70,6 +92,7 @@ class TestAnalysis(unittest.TestCase):
         self.assertEqual(logCall['Message']['payload']['level'], 'ERROR')
         self.assertIn("Reference file not found", logCall['Message']['payload']['message'])
 
+    @timeout(60)
     @patch('analysis.Thread')
     def test_handleMessageAnalyzeSuccess(self, mockThread):
         """
@@ -89,6 +112,7 @@ class TestAnalysis(unittest.TestCase):
         mockThread.assert_called_once()
         self.assertEqual(mockThread.call_args[1]['target'], self.analysisModule.performAnalysis)
 
+    @timeout(60)
     def test_handleMessageAnalyzeNoReferenceData(self):
         """
         Tests that an error is sent if reference data is not loaded.
@@ -101,6 +125,7 @@ class TestAnalysis(unittest.TestCase):
         self.assertEqual(sentMessage[1]['Message']['type'], 'AnalysisError')
         self.assertIn("reference data not loaded", sentMessage[1]['Message']['payload']['message'])
 
+    @timeout(60)
     def test_handleMessageAnalyzeNoImage(self):
         """
         Tests that an error is sent if the image payload is missing.
@@ -113,6 +138,7 @@ class TestAnalysis(unittest.TestCase):
         self.assertEqual(sentMessage[1]['Message']['type'], 'AnalysisError')
         self.assertIn("without image data", sentMessage[1]['Message']['payload']['message'])
 
+    @timeout(60)
     @patch('analysis.Analysis.extractSpectrogramProfile')
     @patch('analysis.Analysis.detectAbsorbanceValleys')
     @patch('analysis.Analysis.compareWithReferences')
@@ -133,6 +159,7 @@ class TestAnalysis(unittest.TestCase):
         mockCompare.assert_called_once_with('peak_indices', 'intensity_profile')
         mockSend.assert_called_once_with({'final': 'results'})
 
+    @timeout(60)
     @patch('analysis.Analysis.extractSpectrogramProfile', side_effect=Exception("Test Error"))
     def test_performAnalysisExceptionHandling(self, mockExtract):
         """
@@ -144,6 +171,7 @@ class TestAnalysis(unittest.TestCase):
         self.assertEqual(sentMessage[1]['Message']['type'], 'AnalysisError')
         self.assertEqual(sentMessage[1]['Message']['payload']['error'], 'Test Error')
 
+    @timeout(60)
     def test_sendAnalysisResults(self):
         """
         Tests that sendAnalysisResults sends the correct message.
@@ -155,6 +183,3 @@ class TestAnalysis(unittest.TestCase):
         self.assertEqual(sentMessage[0], 'All')
         self.assertEqual(sentMessage[1]['Message']['type'], 'AnalysisComplete')
         self.assertEqual(sentMessage[1]['Message']['payload'], results)
-
-if __name__ == '__main__':
-    unittest.main(argv=['first-arg-is-ignored'], exit=False)

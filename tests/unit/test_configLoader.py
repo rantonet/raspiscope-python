@@ -1,9 +1,29 @@
-
 import unittest
 from unittest.mock import patch, mock_open
 import sys
 import json
+import signal
+from functools import wraps
+
 from configLoader import ConfigLoader
+
+def timeout(seconds):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            def handle_timeout(signum, frame):
+                raise TimeoutError(f"Test timed out after {seconds} seconds")
+            
+            signal.signal(signal.SIGALRM, handle_timeout)
+            signal.alarm(seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+        return wrapper
+    return decorator
 
 class TestConfigLoader(unittest.TestCase):
 
@@ -15,6 +35,7 @@ class TestConfigLoader(unittest.TestCase):
         }
         self.validConfigJson = json.dumps(self.validConfig)
 
+    @timeout(60)
     @patch("builtins.open", new_callable=mock_open, read_data=''''''{"invalid": "json"}'''''')
     @patch("sys.exit")
     @patch("builtins.print")
@@ -26,6 +47,7 @@ class TestConfigLoader(unittest.TestCase):
         mockExit.assert_called_once_with(1)
         self.assertIn("is not a valid JSON file", mockPrint.call_args_list[0][0][0])
 
+    @timeout(60)
     @patch("builtins.open", side_effect=FileNotFoundError)
     @patch("sys.exit")
     @patch("builtins.print")
@@ -37,6 +59,7 @@ class TestConfigLoader(unittest.TestCase):
         mockExit.assert_called_once_with(1)
         mockPrint.assert_called_with("CRITICAL ERROR: The configuration file 'non_existent_path.json' was not found.", file=sys.stderr)
 
+    @timeout(60)
     @patch("builtins.open", new_callable=mock_open, read_data='{"network": {}, "system": {}}') # Missing "modules"
     @patch("sys.exit")
     @patch("builtins.print")
@@ -48,6 +71,7 @@ class TestConfigLoader(unittest.TestCase):
         mockExit.assert_called_once_with(1)
         mockPrint.assert_called_with("CRITICAL ERROR: The required key 'modules' is missing from the configuration file.", file=sys.stderr)
 
+    @timeout(60)
     @patch("builtins.open", new_callable=mock_open)
     def test_successfulLoading(self, mockFile):
         """
@@ -59,6 +83,7 @@ class TestConfigLoader(unittest.TestCase):
             mockExit.assert_not_called()
             self.assertIsNotNone(loader.get_config())
 
+    @timeout(60)
     @patch("builtins.open", new_callable=mock_open)
     def test_getConfig(self, mockFile):
         """
@@ -67,10 +92,3 @@ class TestConfigLoader(unittest.TestCase):
         mockFile.return_value.read.return_value = self.validConfigJson
         loader = ConfigLoader("dummy_path.json")
         self.assertEqual(loader.get_config(), self.validConfig)
-
-if __name__ == '__main__':
-    # It's better to run tests via the unittest framework discovery
-    # but this is here for direct execution.
-    # Note: To run this directly, you need to make sure configLoader.py is in the python path.
-    # This can be done by running `python -m unittest tests/unit/test_configLoader.py` from the project root.
-    unittest.main()

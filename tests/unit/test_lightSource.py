@@ -1,6 +1,25 @@
-
 import unittest
 from unittest.mock import MagicMock, patch, call
+import signal
+from functools import wraps
+
+def timeout(seconds):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            def handle_timeout(signum, frame):
+                raise TimeoutError(f"Test timed out after {seconds} seconds")
+            
+            signal.signal(signal.SIGALRM, handle_timeout)
+            signal.alarm(seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+        return wrapper
+    return decorator
 
 # Mock hardware dependencies before importing the class
 mockPixelStrip = MagicMock()
@@ -34,6 +53,7 @@ class TestLightSource(unittest.TestCase):
             self.mockLed = MagicMock()
             mockPixelStrip.return_value = self.mockLed
 
+    @timeout(60)
     def test_initialization(self):
         """
         Tests that the LightSource module is initialized with correct config values.
@@ -44,6 +64,7 @@ class TestLightSource(unittest.TestCase):
         self.assertEqual(self.lightSource.color, (255, 0, 0))
         self.assertIsNone(self.lightSource.led)
 
+    @timeout(60)
     def test_onStartSuccess(self):
         """
         Tests the successful startup sequence.
@@ -57,6 +78,7 @@ class TestLightSource(unittest.TestCase):
         self.mockLed.show.assert_called_once()
         self.mockCommInstance.outgoingQueue.put.assert_any_call(unittest.mock.ANY)
 
+    @timeout(60)
     def test_onStartFailure(self):
         """
         Tests the startup sequence when PixelStrip initialization fails.
@@ -70,6 +92,7 @@ class TestLightSource(unittest.TestCase):
         self.assertEqual(logCall['Message']['payload']['level'], 'ERROR')
         self.assertIn("Could not initialize light source", logCall['Message']['payload']['message'])
 
+    @timeout(60)
     def test_handleMessageTurnOn(self):
         """
         Tests handling of a 'TurnOn' message.
@@ -86,6 +109,7 @@ class TestLightSource(unittest.TestCase):
         # Should send TurningOn and TurnedOn messages
         self.assertEqual(self.mockCommInstance.outgoingQueue.put.call_count, 3) # log + 2 messages
 
+    @timeout(60)
     def test_handleMessageTurnOff(self):
         """
         Tests handling of a 'TurnOff' message.
@@ -100,6 +124,7 @@ class TestLightSource(unittest.TestCase):
         self.mockLed.show.assert_called_once()
         self.assertFalse(self.lightSource.is_on)
 
+    @timeout(60)
     def test_handleMessageDim(self):
         """
         Tests handling of a 'Dim' message.
@@ -114,6 +139,7 @@ class TestLightSource(unittest.TestCase):
         self.mockLed.setBrightness.assert_called_once_with(50)
         self.mockLed.show.assert_called_once() # Should be called if light is on
 
+    @timeout(60)
     def test_handleMessageDimInvalidPayload(self):
         """
         Tests that a 'Dim' message with invalid payload is ignored.
@@ -128,6 +154,7 @@ class TestLightSource(unittest.TestCase):
         logCall = self.mockCommInstance.outgoingQueue.put.call_args[0][0]
         self.assertEqual(logCall['Message']['payload']['level'], 'WARNING')
 
+    @timeout(60)
     def test_handleMessageSetColor(self):
         """
         Tests handling of a 'SetColor' message.
@@ -141,6 +168,7 @@ class TestLightSource(unittest.TestCase):
         self.mockLed.setPixelColor.assert_called_with(0, (10, 20, 30))
         self.mockLed.show.assert_called_once()
 
+    @timeout(60)
     def test_handleMessageNoLed(self):
         """
         Tests that messages are ignored if the LED is not initialized.
@@ -156,6 +184,7 @@ class TestLightSource(unittest.TestCase):
         self.assertEqual(logCall['Message']['payload']['level'], 'WARNING')
         self.assertIn("not available", logCall['Message']['payload']['message'])
 
+    @timeout(60)
     def test_onStop(self):
         """
         Tests that onStop turns the light off.
@@ -165,6 +194,3 @@ class TestLightSource(unittest.TestCase):
         
         self.mockLed.setPixelColor.assert_called_with(0, (0, 0, 0))
         self.mockLed.show.assert_called_once()
-
-if __name__ == '__main__':
-    unittest.main(argv=['first-arg-is-ignored'], exit=False)

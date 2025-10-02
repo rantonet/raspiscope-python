@@ -4,6 +4,26 @@ import json
 import socket
 from queue import Queue
 from threading import Event, Thread
+import signal
+from functools import wraps
+
+def timeout(seconds):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            def handle_timeout(signum, frame):
+                raise TimeoutError(f"Test timed out after {seconds} seconds")
+            
+            signal.signal(signal.SIGALRM, handle_timeout)
+            signal.alarm(seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+        return wrapper
+    return decorator
 
 # Assuming communicator.py is in the parent directory or accessible via PYTHONPATH
 from communicator import Communicator
@@ -14,6 +34,7 @@ class TestCommunicator(unittest.TestCase):
         self.config = {'address': 'localhost', 'port': 12345}
         self.stopEvent = Event()
 
+    @timeout(60)
     @patch('socket.socket')
     def test_clientInitialization(self, mockSocket):
         client = Communicator(commType="client", name="TestClient", config=self.config)
@@ -23,6 +44,7 @@ class TestCommunicator(unittest.TestCase):
         self.assertIsInstance(client.incomingQueue, Queue)
         self.assertIsInstance(client.outgoingQueue, Queue)
 
+    @timeout(60)
     @patch('socket.socket')
     def test_serverInitialization(self, mockSocket):
         server = Communicator(commType="server", name="Server", config=self.config)
@@ -32,6 +54,7 @@ class TestCommunicator(unittest.TestCase):
         self.assertIsInstance(server.incomingQueue, Queue)
         self.assertIsInstance(server.outgoingQueue, Queue)
 
+    @timeout(60)
     @patch('communicator.Thread')
     @patch('socket.socket')
     def test_clientRunStartsAndConnects(self, mockSocket, mockThread):
@@ -56,6 +79,7 @@ class TestCommunicator(unittest.TestCase):
         self.assertEqual(mockThread.call_count, 1)
         self.assertEqual(mockThread.call_args[1]['target'], client._clientSendLoop)
 
+    @timeout(60)
     @patch('time.sleep')
     @patch('socket.socket')
     def test_clientConnectionRefused(self, mockSocket, mockSleep):
@@ -75,6 +99,7 @@ class TestCommunicator(unittest.TestCase):
         self.assertEqual(mockConn.connect.call_count, 2)
         mockSleep.assert_called_once_with(3) # Default reconnect delay
 
+    @timeout(60)
     def test_clientReceiveMessage(self):
         client = Communicator(commType="client", name="TestClient", config=self.config)
         mockConn = MagicMock()
@@ -90,6 +115,7 @@ class TestCommunicator(unittest.TestCase):
         receivedMessage = client.incomingQueue.get()
         self.assertEqual(receivedMessage, message)
 
+    @timeout(60)
     def test_clientSendMessage(self):
         client = Communicator(commType="client", name="TestClient", config=self.config)
         mockConn = MagicMock()
@@ -106,6 +132,7 @@ class TestCommunicator(unittest.TestCase):
         mockConn.sendall.assert_called_once_with(expectedData)
         self.assertTrue(client.outgoingQueue.empty())
 
+    @timeout(60)
     @patch('communicator.Thread')
     @patch('socket.socket')
     def test_serverRunInitializesAndAccepts(self, mockSocket, mockThread):
@@ -126,6 +153,7 @@ class TestCommunicator(unittest.TestCase):
         self.assertEqual(mockThread.call_count, 1)
         self.assertEqual(mockThread.call_args[1]['target'], server._serverSendLoop)
 
+    @timeout(60)
     @patch('communicator.Thread')
     @patch('socket.socket')
     def test_serverHandlesClientConnection(self, mockSocket, mockThread):
@@ -158,6 +186,7 @@ class TestCommunicator(unittest.TestCase):
         self.assertEqual(clientThreadCall[1]['target'], server._serverHandleClient)
         self.assertEqual(clientThreadCall[1]['args'][0], clientName)
 
+    @timeout(60)
     def test_serverReceivesMessage(self):
         server = Communicator(commType="server", name="Server", config=self.config)
         mockConn = MagicMock()
@@ -173,6 +202,7 @@ class TestCommunicator(unittest.TestCase):
         self.assertFalse(server.incomingQueue.empty())
         self.assertEqual(server.incomingQueue.get(), message)
 
+    @timeout(60)
     def test_serverSendsUnicastMessage(self):
         server = Communicator(commType="server", name="Server", config=self.config)
         mockSock1 = MagicMock()
@@ -190,6 +220,7 @@ class TestCommunicator(unittest.TestCase):
         mockSock1.sendall.assert_called_once_with(expectedData)
         mockSock2.sendall.assert_not_called()
 
+    @timeout(60)
     def test_serverSendsBroadcastMessage(self):
         server = Communicator(commType="server", name="Server", config=self.config)
         mockSock1 = MagicMock()
@@ -211,6 +242,7 @@ class TestCommunicator(unittest.TestCase):
         mockSock2.sendall.assert_called_once_with(expectedData)
         mockSock3.sendall.assert_called_once_with(expectedData)
 
+    @timeout(60)
     def test_logMessageClient(self):
         client = Communicator(commType="client", name="TestClient", config=self.config)
         client.log("INFO", "Test log message")
@@ -224,6 +256,7 @@ class TestCommunicator(unittest.TestCase):
         self.assertEqual(logMessage['Message']['payload']['level'], "INFO")
         self.assertEqual(logMessage['Message']['payload']['message'], "Test log message")
 
+    @timeout(60)
     def test_logMessageServer(self):
         server = Communicator(commType="server", name="Server", config=self.config)
         server.log("ERROR", "Test log message")
@@ -238,6 +271,7 @@ class TestCommunicator(unittest.TestCase):
         self.assertEqual(logMessage['Message']['payload']['level'], "ERROR")
         self.assertEqual(logMessage['Message']['payload']['message'], "Test log message")
 
+    @timeout(60)
     def test_parseMessages(self):
         comm = Communicator("client", "Test", {})
         validJsonStr = '{"key": "value"}'
@@ -245,6 +279,7 @@ class TestCommunicator(unittest.TestCase):
         self.assertEqual(len(messages), 1)
         self.assertEqual(messages[0], {"key": "value"})
 
+    @timeout(60)
     def test_parseInvalidMessage(self):
         comm = Communicator("client", "Test", {})
         invalidJsonStr = '{"key": "value"' # Missing closing brace
@@ -254,6 +289,3 @@ class TestCommunicator(unittest.TestCase):
             self.assertEqual(len(messages), 0)
             mockLog.assert_called_once()
             self.assertIn("JSON parsing error", mockLog.call_args[0][1])
-
-if __name__ == '__main__':
-    unittest.main()

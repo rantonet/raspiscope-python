@@ -1,7 +1,26 @@
-
 import unittest
 from unittest.mock import MagicMock, patch, mock_open, call
 import json
+import signal
+from functools import wraps
+
+def timeout(seconds):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            def handle_timeout(signum, frame):
+                raise TimeoutError(f"Test timed out after {seconds} seconds")
+            
+            signal.signal(signal.SIGALRM, handle_timeout)
+            signal.alarm(seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+        return wrapper
+    return decorator
 
 # Mock hardware dependencies before import
 mockInputDevice = MagicMock()
@@ -39,6 +58,7 @@ class TestCuvetteSensor(unittest.TestCase):
             self.mockSensorDevice = MagicMock()
             mockInputDevice.return_value = self.mockSensorDevice
 
+    @timeout(60)
     def test_initialization(self):
         """
         Tests that the CuvetteSensor is initialized with correct config values.
@@ -49,6 +69,7 @@ class TestCuvetteSensor(unittest.TestCase):
         self.assertEqual(self.sensorModule.numSamples, 5)
         self.assertIsNone(self.sensorModule.sensor)
 
+    @timeout(60)
     def test_onStartSuccess(self):
         """
         Tests the successful startup sequence.
@@ -58,6 +79,7 @@ class TestCuvetteSensor(unittest.TestCase):
         self.assertIsNotNone(self.sensorModule.sensor)
         self.mockCommInstance.outgoingQueue.put.assert_any_call(unittest.mock.ANY)
 
+    @timeout(60)
     def test_onStartFailure(self):
         """
         Tests the startup sequence when InputDevice initialization fails.
@@ -69,6 +91,7 @@ class TestCuvetteSensor(unittest.TestCase):
         self.assertEqual(logCall['Message']['payload']['level'], 'ERROR')
         self.assertIn("Could not initialize sensor", logCall['Message']['payload']['message'])
 
+    @timeout(60)
     def test_checkPresenceBecomesPresent(self):
         """
         Tests the state change from absent to present.
@@ -85,6 +108,7 @@ class TestCuvetteSensor(unittest.TestCase):
         self.assertEqual(sentMessage['Destination'], 'Camera')
         self.assertEqual(sentMessage['Message']['type'], 'CuvettePresent')
 
+    @timeout(60)
     def test_checkPresenceBecomesAbsent(self):
         """
         Tests the state change from present to absent.
@@ -101,6 +125,7 @@ class TestCuvetteSensor(unittest.TestCase):
         self.assertEqual(sentMessage['Destination'], 'Camera')
         self.assertEqual(sentMessage['Message']['type'], 'CuvetteAbsent')
 
+    @timeout(60)
     def test_checkPresenceNoChange(self):
         """
         Tests that no message is sent when the state does not change.
@@ -114,6 +139,7 @@ class TestCuvetteSensor(unittest.TestCase):
 
         self.mockCommInstance.outgoingQueue.put.assert_not_called()
 
+    @timeout(60)
     @patch('time.sleep')
     @patch('statistics.mean', return_value=0.8)
     @patch("builtins.open", new_callable=mock_open, read_data=json.dumps({"modules": {"cuvetteSensor": {}}}))
@@ -140,6 +166,7 @@ class TestCuvetteSensor(unittest.TestCase):
         mockFile().seek.assert_called_once_with(0)
         mockFile().truncate.assert_called_once()
 
+    @timeout(60)
     def test_calibrateNoSensor(self):
         """
         Tests that calibrate sends an error if the sensor is not initialized.
@@ -151,6 +178,3 @@ class TestCuvetteSensor(unittest.TestCase):
         self.assertEqual(sentMessage[0], 'All')
         self.assertEqual(sentMessage[1]['Message']['type'], 'CalibrationError')
         self.assertIn("sensor not initialized", sentMessage[1]['Message']['payload']['message'])
-
-if __name__ == '__main__':
-    unittest.main(argv=['first-arg-is-ignored'], exit=False)
