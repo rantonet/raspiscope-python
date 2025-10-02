@@ -1,9 +1,0 @@
-@startuml Light Calibration
-start
-while (tests) is (less than 10)
-    :Take picture
-    :Check saturation
-endwhile (10)
-:Set lighting with best saturation
-stop
-@enduml
