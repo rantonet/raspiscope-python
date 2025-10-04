@@ -24,4 +24,4 @@ jobs:
         echo "Installing requirements..."
         .venv/bin/python -m pip install -r requirements.txt
         echo "Starting tests..."
-        .venv/bin/python -m unittest discover tests/unit/test_*
+        .venv/bin/python -m unittest tests/unit/test_*
