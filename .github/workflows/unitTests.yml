@@ -14,7 +14,7 @@ jobs:
         sudo apt-get install -y python3-picamera2 libcap-dev libcamera-dev python-dev-is-python3
     - name: Checkout Code
       uses: actions/checkout@v4
-    - name: Install Dependencies and Run Tests
+    - name: Install Dependencies
       run: |
         echo "Setting up and starting Python Virtual Environment..." 
         python3 -m venv --system-site-packages .venv
@@ -23,5 +23,35 @@ jobs:
         .venv/bin/python -m pip install --upgrade pip
         echo "Installing requirements..."
         .venv/bin/python -m pip install -r requirements.txt
+    - name: Run Communicator Tests
+      run: |
         echo "Starting tests..."
-        .venv/bin/python -m unittest tests/unit/test_*
+        .venv/bin/python -m unittest tests/unit/test_communicator.py
+    - name: Run EventManager Tests
+      run: |
+        echo "Starting tests..."
+        .venv/bin/python -m unittest tests/unit/test_eventManager.py
+    - name: Run ConfigLoader Tests
+      run: |
+        echo "Starting tests..."
+        .venv/bin/python -m unittest tests/unit/test_configLoader.py
+    - name: Run Logger Tests
+      run: |
+        echo "Starting tests..."
+        .venv/bin/python -m unittest tests/unit/test_logger.py
+    - name: Run CuvetteSensor Tests
+      run: |
+        echo "Starting tests..."
+        .venv/bin/python -m unittest tests/unit/test_cuvetteSensor.py
+    - name: Run LightSource Tests
+      run: |
+        echo "Starting tests..."
+        .venv/bin/python -m unittest tests/unit/test_lightSource.py
+    - name: Run Camera Tests
+      run: |
+        echo "Starting tests..."
+        .venv/bin/python -m unittest tests/unit/test_camera.py
+    - name: Run Analysis Tests
+      run: |
+        echo "Starting tests..."
+        .venv/bin/python -m unittest tests/unit/test_analysis.py
