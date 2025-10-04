@@ -38,7 +38,7 @@ class TestConfigLoader(unittest.TestCase):
         print("Setup complete for TestConfigLoader")
 
     @timeout(60)
-    @patch("builtins.open", new_callable=mock_open, read_data=''''''{"invalid": "json"}'''''')
+    @patch("builtins.open", new_callable=mock_open, read_data='{"invalid": "json"}')
     @patch("sys.exit")
     @patch("builtins.print")
     def test_invalidJson(self, mockPrint, mockExit, mockFile):
