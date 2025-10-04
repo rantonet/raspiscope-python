@@ -5,6 +5,7 @@ import numpy
 import base64
 import signal
 from functools import wraps
+import sys
 
 # Mock hardware/heavy dependencies before import
 mockPicamera2 = MagicMock()

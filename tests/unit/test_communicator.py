@@ -6,8 +6,8 @@ from queue import Queue
 from threading import Event, Thread
 import signal
 from functools import wraps
+import time
 
-# Assuming communicator.py is in the parent directory or accessible via PYTHONPATH
 from communicator import Communicator
 
 class TestCommunicator(unittest.TestCase):

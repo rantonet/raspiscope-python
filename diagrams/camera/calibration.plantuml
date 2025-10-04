@@ -7,15 +7,15 @@ start
 :Get\nExposure\nList;
 :Get Brightness;
 while (Calibrated) is (no)
-    while (Light in Lights-List)
+    while (Light in Lights-List) is (yes)
         :Set Light;
-        while (Color in Colors-List)
+        while (Color in Colors-List) is (yes)
             :Set Color;
-            while (Gain in Gain-List)
-                :Set \namera\nGain;
-                while (Exposure in Exposure-List)
+            while (Gain in Gain-List) is (yes)
+                :Set\namera\nGain;
+                while (Exposure in Exposure-List) is (yes)
                     :Set\ncamera\nExposure;
-                    while (Brightness in Brightness-List)
+                    while (Brightness in Brightness-List) is (yes)
                         :Set\ncamera\nBrightness;
                         :Create\nSettings array\nwith\nGain, Exposure and Brightness;
                         :Get picture;

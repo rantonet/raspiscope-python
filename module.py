@@ -65,8 +65,9 @@ class Module:
                 
                 self.handleMessage(message)
                 self.communicator.incomingQueue.task_done()
-
+                time.sleep(0.001)
             except Empty:
+                time.sleep(0.001)
                 continue
     
     def sendMessage(self,destination,msgType,payload=None):

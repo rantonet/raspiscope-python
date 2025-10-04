@@ -177,13 +177,13 @@ class Camera(Module):
                             
                             # 6. Update the best settings
                             if total_score > best_settings["score"]:
-                                best_settings["camera"]["gain"]        = gain
-                                best_settings["camera"]["exposure"]   = exposure
-                                best_settings["light"]["r"]           = r
-                                best_settings["light"]["g"]           = g
-                                best_settings["light"]["b"]           = b
-                                best_settings["light"]["brightness"]  = brightness
-                                best_settings["score"]                = total_score
+                                best_settings["camera"]["gain"]      = gain
+                                best_settings["camera"]["exposure"]  = exposure
+                                best_settings["light"]["r"]          = r
+                                best_settings["light"]["g"]          = g
+                                best_settings["light"]["b"]          = b
+                                best_settings["light"]["brightness"] = brightness
+                                best_settings["score"]               = total_score
 
             # 7. Apply the best settings found
             if best_settings["camera"]["gain"]:

@@ -34,6 +34,7 @@ class EventManager:
         try:
             while not self._stopEvent.is_set():
                 self.route()
+                time.sleep(0.001)
         finally:
             self._cleanup()
             commThread.join()

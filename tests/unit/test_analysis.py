@@ -4,6 +4,7 @@ import pandas
 import numpy
 import signal
 from functools import wraps
+import sys
 
 # Mock heavy dependencies before import
 mock_cv2 = MagicMock()

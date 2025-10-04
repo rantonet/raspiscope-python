@@ -101,6 +101,7 @@ class Communicator:
                 else:
                     conn.close()
                     self.log("WARNING","Received connection from unknown client. Connection closed.")
+                time.sleep(0.001)
             except socket.timeout:
                 continue
             except Exception as e:
@@ -145,9 +146,10 @@ class Communicator:
                         self.client_sockets.pop(destination, None)
                 else:
                     self.log("WARNING",f"Destination '{destination}' not found for message.")
-
                 self.outgoingQueue.task_done()
+                time.sleep(0.001)
             except Empty:
+                time.sleep(0.001)
                 continue  # No message to send, continue the loop
             except Exception as e:
                 self.log("ERROR",f"Error in server send loop: {e}")
@@ -173,7 +175,9 @@ class Communicator:
                     self.log("INFO",f"Client '{client_name}' disconnected.")
                     self.client_sockets.pop(client_name, None)  # Remove the socket
                     break
+                time.sleep(0.001)
             except socket.timeout:
+                time.sleep(0.001)
                 continue
             except (socket.error, ConnectionResetError):
                 self.log("WARNING",f"Client '{client_name}' connection lost.")
@@ -195,22 +199,17 @@ class Communicator:
                 self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.conn.connect((self.config['address'], self.config['port']))
                 self.conn.settimeout(1.0)
-
                 # Send name for identification
                 initial_msg = json.dumps({"name": self.name}) + '\n'
                 self.conn.sendall(initial_msg.encode('utf-8'))
-
                 self.log("INFO",f"Client '{self.name}' connected to server.")
-
                 # Start a separate thread to handle sending messages
                 send_thread = Thread(target=self._clientSendLoop, args=(stopEvent,))
                 send_thread.daemon = True
                 send_thread.start()
-
                 self._clientReceiveLoop(stopEvent)
-
                 send_thread.join()
-
+                time.sleep(0.001)
             except (ConnectionRefusedError, socket.timeout):
                 reconnect_delay = self.config.get('client_reconnect_delay_s', 3)
                 self.log("WARNING",f"Connection failed. Retrying in {reconnect_delay} seconds...")
@@ -248,7 +247,9 @@ class Communicator:
                 else:
                     self.log("INFO","Server disconnected.")
                     break
+                time.sleep(0.001)
             except socket.timeout:
+                time.sleep(0.001)
                 continue
             except (socket.error, ConnectionResetError):
                 self.log("WARNING","Connection to server lost.")
@@ -267,7 +268,9 @@ class Communicator:
                 json_data = json.dumps(message) + '\n'
                 self.conn.sendall(json_data.encode('utf-8'))
                 self.outgoingQueue.task_done()
+                time.sleep(0.001)
             except Empty:
+                time.sleep(0.001)
                 continue
             except (socket.error, ConnectionResetError):
                 self.log("ERROR","Failed to send message: connection lost.")

@@ -3,6 +3,9 @@ from unittest.mock import MagicMock, patch, mock_open, call
 import json
 import signal
 from functools import wraps
+import sys
+import time
+import statistics
 
 # Mock hardware dependencies before import
 mockInputDevice = MagicMock()

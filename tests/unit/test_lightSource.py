@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch, call
 import signal
 from functools import wraps
+import sys
 
 # Mock hardware dependencies before importing the class
 mockPixelStrip = MagicMock()
