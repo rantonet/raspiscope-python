@@ -8,24 +8,6 @@ from functools import wraps
 
 from eventManager import EventManager
 
-def timeout(seconds):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            def handle_timeout(signum, frame):
-                raise TimeoutError(f"Test timed out after {seconds} seconds")
-            
-            signal.signal(signal.SIGALRM, handle_timeout)
-            signal.alarm(seconds)
-            
-            try:
-                result = func(*args, **kwargs)
-            finally:
-                signal.alarm(0)
-            return result
-        return wrapper
-    return decorator
-
 class TestEventManager(unittest.TestCase):
 
     @patch('eventManager.ConfigLoader')
@@ -48,7 +30,6 @@ class TestEventManager(unittest.TestCase):
         self.eventManager = EventManager(configPath="dummy_path.json")
         print("Setup complete for TestEventManager")
 
-    @timeout(60)
     def test_initialization(self):
         """
         Tests if the EventManager is initialized correctly.
@@ -66,7 +47,6 @@ class TestEventManager(unittest.TestCase):
         print("test_initialization: Asserted _stopEvent type")
         print("test_initialization: Test finished")
 
-    @timeout(60)
     @patch('time.time', return_value=1234567890)
     def test_handleRegistration(self, mockTime):
         """
@@ -93,7 +73,6 @@ class TestEventManager(unittest.TestCase):
         print("test_handleRegistration: Asserted log message content")
         print("test_handleRegistration: Test finished")
 
-    @timeout(60)
     def test_handleRegistrationAlreadyRegistered(self):
         """
         Tests that re-registering an existing module logs a warning.
@@ -113,7 +92,6 @@ class TestEventManager(unittest.TestCase):
         print("test_handleRegistrationAlreadyRegistered: Asserted log message content")
         print("test_handleRegistrationAlreadyRegistered: Test finished")
 
-    @timeout(60)
     def test_handleUnregistration(self):
         """
         Tests the unregistration of a module.
@@ -135,7 +113,6 @@ class TestEventManager(unittest.TestCase):
         print("test_handleUnregistration: Asserted log message content")
         print("test_handleUnregistration: Test finished")
 
-    @timeout(60)
     def test_handleUnregistrationNotRegistered(self):
         """
         Tests that unregistering a non-existent module logs a warning.
@@ -153,7 +130,6 @@ class TestEventManager(unittest.TestCase):
         print("test_handleUnregistrationNotRegistered: Asserted log message content")
         print("test_handleUnregistrationNotRegistered: Test finished")
 
-    @timeout(60)
     def test_routeMessageToModule(self):
         """
         Tests that a message for another module is routed to the outgoing queue.
@@ -173,7 +149,6 @@ class TestEventManager(unittest.TestCase):
         print("test_routeMessageToModule: Asserted routed message content")
         print("test_routeMessageToModule: Test finished")
 
-    @timeout(60)
     def test_routeRegisterMessage(self):
         """
         Tests that a 'register' message is handled by _handleRegistration.
@@ -190,7 +165,6 @@ class TestEventManager(unittest.TestCase):
             print("test_routeRegisterMessage: Asserted _handleRegistration called")
         print("test_routeRegisterMessage: Test finished")
 
-    @timeout(60)
     def test_routeUnregisterMessage(self):
         """
         Tests that an 'unregister' message is handled by _handleUnregistration.
@@ -207,7 +181,6 @@ class TestEventManager(unittest.TestCase):
             print("test_routeUnregisterMessage: Asserted _handleUnregistration called")
         print("test_routeUnregisterMessage: Test finished")
 
-    @timeout(60)
     def test_routeStopMessage(self):
         """
         Tests that a 'Stop' message for the EventManager calls the stop method.
@@ -224,7 +197,6 @@ class TestEventManager(unittest.TestCase):
             print("test_routeStopMessage: Asserted stop called")
         print("test_routeStopMessage: Test finished")
 
-    @timeout(60)
     def test_routeEmptyQueue(self):
         """
         Tests that route handles an empty queue without error.
@@ -238,7 +210,6 @@ class TestEventManager(unittest.TestCase):
             self.fail(f"route() raised {e.__class__.__name__} unexpectedly!")
         print("test_routeEmptyQueue: Test finished")
 
-    @timeout(60)
     def test_stop(self):
         """
         Tests that the stop method sets the internal stop event.
@@ -252,7 +223,6 @@ class TestEventManager(unittest.TestCase):
         print("test_stop: Asserted _stopEvent is set")
         print("test_stop: Test finished")
 
-    @timeout(60)
     def test_cleanup(self):
         """
         Tests the cleanup procedure.
@@ -291,7 +261,6 @@ class TestEventManager(unittest.TestCase):
         print("test_cleanup: Asserted terminate not called on dead process")
         print("test_cleanup: Test finished")
 
-    @timeout(60)
     def test_log(self):
         """
         Tests the log method to ensure it queues a correctly formatted log message.

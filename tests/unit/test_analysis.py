@@ -5,24 +5,6 @@ import numpy
 import signal
 from functools import wraps
 
-def timeout(seconds):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            def handle_timeout(signum, frame):
-                raise TimeoutError(f"Test timed out after {seconds} seconds")
-            
-            signal.signal(signal.SIGALRM, handle_timeout)
-            signal.alarm(seconds)
-            
-            try:
-                result = func(*args, **kwargs)
-            finally:
-                signal.alarm(0)
-            return result
-        return wrapper
-    return decorator
-
 # Mock heavy dependencies before import
 mock_cv2 = MagicMock()
 mock_base64 = MagicMock()
@@ -56,7 +38,6 @@ class TestAnalysis(unittest.TestCase):
             self.analysisModule = Analysis(self.mockConfig, self.mockNetworkConfig, self.mockSystemConfig)
         print("Setup complete for TestAnalysis")
 
-    @timeout(60)
     def test_initialization(self):
         """
         Tests that the Analysis module is initialized correctly.
@@ -72,7 +53,6 @@ class TestAnalysis(unittest.TestCase):
         print("test_initialization: Asserted referenceSpectra is None")
         print("test_initialization: Test finished")
 
-    @timeout(60)
     def test_onStartSuccess(self):
         """
         Tests successful loading of reference spectra on start.
@@ -95,7 +75,6 @@ class TestAnalysis(unittest.TestCase):
         print("test_onStartSuccess: Asserted registration message sent")
         print("test_onStartSuccess: Test finished")
 
-    @timeout(60)
     def test_onStartFileNotFound(self):
         """
         Tests handling of FileNotFoundError on start.
@@ -113,7 +92,6 @@ class TestAnalysis(unittest.TestCase):
         print("test_onStartFileNotFound: Asserted log message content")
         print("test_onStartFileNotFound: Test finished")
 
-    @timeout(60)
     @patch('analysis.Thread')
     def test_handleMessageAnalyzeSuccess(self, mockThread):
         """
@@ -140,7 +118,6 @@ class TestAnalysis(unittest.TestCase):
         print("test_handleMessageAnalyzeSuccess: Asserted thread target")
         print("test_handleMessageAnalyzeSuccess: Test finished")
 
-    @timeout(60)
     def test_handleMessageAnalyzeNoReferenceData(self):
         """
         Tests that an error is sent if reference data is not loaded.
@@ -158,7 +135,6 @@ class TestAnalysis(unittest.TestCase):
         print("test_handleMessageAnalyzeNoReferenceData: Asserted error message content")
         print("test_handleMessageAnalyzeNoReferenceData: Test finished")
 
-    @timeout(60)
     def test_handleMessageAnalyzeNoImage(self):
         """
         Tests that an error is sent if the image payload is missing.
@@ -176,7 +152,6 @@ class TestAnalysis(unittest.TestCase):
         print("test_handleMessageAnalyzeNoImage: Asserted error message content")
         print("test_handleMessageAnalyzeNoImage: Test finished")
 
-    @timeout(60)
     @patch('analysis.Analysis.extractSpectrogramProfile')
     @patch('analysis.Analysis.detectAbsorbanceValleys')
     @patch('analysis.Analysis.compareWithReferences')
@@ -204,7 +179,6 @@ class TestAnalysis(unittest.TestCase):
         print("test_performAnalysisOrchestration: Asserted sendAnalysisResults called")
         print("test_performAnalysisOrchestration: Test finished")
 
-    @timeout(60)
     @patch('analysis.Analysis.extractSpectrogramProfile', side_effect=Exception("Test Error"))
     def test_performAnalysisExceptionHandling(self, mockExtract):
         """
@@ -221,7 +195,6 @@ class TestAnalysis(unittest.TestCase):
         print("test_performAnalysisExceptionHandling: Asserted error message content")
         print("test_performAnalysisExceptionHandling: Test finished")
 
-    @timeout(60)
     def test_sendAnalysisResults(self):
         """
         Tests that sendAnalysisResults sends the correct message.

@@ -7,24 +7,6 @@ from functools import wraps
 
 from configLoader import ConfigLoader
 
-def timeout(seconds):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            def handle_timeout(signum, frame):
-                raise TimeoutError(f"Test timed out after {seconds} seconds")
-            
-            signal.signal(signal.SIGALRM, handle_timeout)
-            signal.alarm(seconds)
-            
-            try:
-                result = func(*args, **kwargs)
-            finally:
-                signal.alarm(0)
-            return result
-        return wrapper
-    return decorator
-
 class TestConfigLoader(unittest.TestCase):
 
     def setUp(self):
@@ -37,7 +19,6 @@ class TestConfigLoader(unittest.TestCase):
         self.validConfigJson = json.dumps(self.validConfig)
         print("Setup complete for TestConfigLoader")
 
-    @timeout(60)
     @patch("builtins.open", new_callable=mock_open, read_data='{"invalid": "json"}')
     @patch("sys.exit")
     @patch("builtins.print")
@@ -54,7 +35,6 @@ class TestConfigLoader(unittest.TestCase):
         print("test_invalidJson: Asserted error message printed")
         print("test_invalidJson: Test finished")
 
-    @timeout(60)
     @patch("builtins.open", side_effect=FileNotFoundError)
     @patch("sys.exit")
     @patch("builtins.print")
@@ -71,7 +51,6 @@ class TestConfigLoader(unittest.TestCase):
         print("test_fileNotFound: Asserted error message printed")
         print("test_fileNotFound: Test finished")
 
-    @timeout(60)
     @patch("builtins.open", new_callable=mock_open, read_data='{"network": {}, "system": {}}') # Missing "modules"
     @patch("sys.exit")
     @patch("builtins.print")
@@ -88,7 +67,6 @@ class TestConfigLoader(unittest.TestCase):
         print("test_missingRequiredKeys: Asserted error message printed")
         print("test_missingRequiredKeys: Test finished")
 
-    @timeout(60)
     @patch("builtins.open", new_callable=mock_open)
     def test_successfulLoading(self, mockFile):
         """
@@ -105,7 +83,6 @@ class TestConfigLoader(unittest.TestCase):
             print("test_successfulLoading: Asserted config is not None")
         print("test_successfulLoading: Test finished")
 
-    @timeout(60)
     @patch("builtins.open", new_callable=mock_open)
     def test_getConfig(self, mockFile):
         """

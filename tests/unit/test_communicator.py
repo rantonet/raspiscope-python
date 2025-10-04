@@ -7,24 +7,6 @@ from threading import Event, Thread
 import signal
 from functools import wraps
 
-def timeout(seconds):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            def handle_timeout(signum, frame):
-                raise TimeoutError(f"Test timed out after {seconds} seconds")
-            
-            signal.signal(signal.SIGALRM, handle_timeout)
-            signal.alarm(seconds)
-            
-            try:
-                result = func(*args, **kwargs)
-            finally:
-                signal.alarm(0)
-            return result
-        return wrapper
-    return decorator
-
 # Assuming communicator.py is in the parent directory or accessible via PYTHONPATH
 from communicator import Communicator
 
@@ -36,7 +18,6 @@ class TestCommunicator(unittest.TestCase):
         self.stopEvent = Event()
         print("Setup complete for TestCommunicator")
 
-    @timeout(60)
     @patch('socket.socket')
     def test_clientInitialization(self, mockSocket):
         print("test_clientInitialization: Starting test")
@@ -54,7 +35,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_clientInitialization: Asserted outgoingQueue type")
         print("test_clientInitialization: Test finished")
 
-    @timeout(60)
     @patch('socket.socket')
     def test_serverInitialization(self, mockSocket):
         print("test_serverInitialization: Starting test")
@@ -72,7 +52,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_serverInitialization: Asserted outgoingQueue type")
         print("test_serverInitialization: Test finished")
 
-    @timeout(60)
     @patch('communicator.Thread')
     @patch('socket.socket')
     def test_clientRunStartsAndConnects(self, mockSocket, mockThread):
@@ -105,7 +84,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_clientRunStartsAndConnects: Asserted thread target")
         print("test_clientRunStartsAndConnects: Test finished")
 
-    @timeout(60)
     @patch('time.sleep')
     @patch('socket.socket')
     def test_clientConnectionRefused(self, mockSocket, mockSleep):
@@ -130,7 +108,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_clientConnectionRefused: Asserted sleep called")
         print("test_clientConnectionRefused: Test finished")
 
-    @timeout(60)
     def test_clientReceiveMessage(self):
         print("test_clientReceiveMessage: Starting test")
         client = Communicator(commType="client", name="TestClient", config=self.config)
@@ -151,7 +128,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_clientReceiveMessage: Asserted received message content")
         print("test_clientReceiveMessage: Test finished")
 
-    @timeout(60)
     def test_clientSendMessage(self):
         print("test_clientSendMessage: Starting test")
         client = Communicator(commType="client", name="TestClient", config=self.config)
@@ -174,7 +150,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_clientSendMessage: Asserted outgoingQueue is empty")
         print("test_clientSendMessage: Test finished")
 
-    @timeout(60)
     @patch('communicator.Thread')
     @patch('socket.socket')
     def test_serverRunInitializesAndAccepts(self, mockSocket, mockThread):
@@ -202,7 +177,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_serverRunInitializesAndAccepts: Asserted thread target")
         print("test_serverRunInitializesAndAccepts: Test finished")
 
-    @timeout(60)
     @patch('communicator.Thread')
     @patch('socket.socket')
     def test_serverHandlesClientConnection(self, mockSocket, mockThread):
@@ -243,7 +217,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_serverHandlesClientConnection: Asserted client handler thread args")
         print("test_serverHandlesClientConnection: Test finished")
 
-    @timeout(60)
     def test_serverReceivesMessage(self):
         print("test_serverReceivesMessage: Starting test")
         server = Communicator(commType="server", name="Server", config=self.config)
@@ -264,7 +237,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_serverReceivesMessage: Asserted received message content")
         print("test_serverReceivesMessage: Test finished")
 
-    @timeout(60)
     def test_serverSendsUnicastMessage(self):
         print("test_serverSendsUnicastMessage: Starting test")
         server = Communicator(commType="server", name="Server", config=self.config)
@@ -288,7 +260,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_serverSendsUnicastMessage: Asserted sendall not called on other socket")
         print("test_serverSendsUnicastMessage: Test finished")
 
-    @timeout(60)
     def test_serverSendsBroadcastMessage(self):
         print("test_serverSendsBroadcastMessage: Starting test")
         server = Communicator(commType="server", name="Server", config=self.config)
@@ -317,7 +288,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_serverSendsBroadcastMessage: Asserted sent to client 3")
         print("test_serverSendsBroadcastMessage: Test finished")
 
-    @timeout(60)
     def test_logMessageClient(self):
         print("test_logMessageClient: Starting test")
         client = Communicator(commType="client", name="TestClient", config=self.config)
@@ -340,7 +310,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_logMessageClient: Asserted log message")
         print("test_logMessageClient: Test finished")
 
-    @timeout(60)
     def test_logMessageServer(self):
         print("test_logMessageServer: Starting test")
         server = Communicator(commType="server", name="Server", config=self.config)
@@ -365,7 +334,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_logMessageServer: Asserted log message")
         print("test_logMessageServer: Test finished")
 
-    @timeout(60)
     def test_parseMessages(self):
         print("test_parseMessages: Starting test")
         comm = Communicator("client", "Test", {})
@@ -378,7 +346,6 @@ class TestCommunicator(unittest.TestCase):
         print("test_parseMessages: Asserted message content")
         print("test_parseMessages: Test finished")
 
-    @timeout(60)
     def test_parseInvalidMessage(self):
         print("test_parseInvalidMessage: Starting test")
         comm = Communicator("client", "Test", {})

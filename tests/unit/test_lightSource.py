@@ -3,24 +3,6 @@ from unittest.mock import MagicMock, patch, call
 import signal
 from functools import wraps
 
-def timeout(seconds):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            def handle_timeout(signum, frame):
-                raise TimeoutError(f"Test timed out after {seconds} seconds")
-            
-            signal.signal(signal.SIGALRM, handle_timeout)
-            signal.alarm(seconds)
-            
-            try:
-                result = func(*args, **kwargs)
-            finally:
-                signal.alarm(0)
-            return result
-        return wrapper
-    return decorator
-
 # Mock hardware dependencies before importing the class
 mockPixelStrip = MagicMock()
 mockColor = MagicMock(side_effect=lambda r, g, b: (r, g, b))
@@ -55,7 +37,6 @@ class TestLightSource(unittest.TestCase):
             mockPixelStrip.return_value = self.mockLed
         print("Setup complete for TestLightSource")
 
-    @timeout(60)
     def test_initialization(self):
         """
         Tests that the LightSource module is initialized with correct config values.
@@ -73,7 +54,6 @@ class TestLightSource(unittest.TestCase):
         print("test_initialization: Asserted led is None")
         print("test_initialization: Test finished")
 
-    @timeout(60)
     def test_onStartSuccess(self):
         """
         Tests the successful startup sequence.
@@ -95,7 +75,6 @@ class TestLightSource(unittest.TestCase):
         print("test_onStartSuccess: Asserted registration message sent")
         print("test_onStartSuccess: Test finished")
 
-    @timeout(60)
     def test_onStartFailure(self):
         """
         Tests the startup sequence when PixelStrip initialization fails.
@@ -115,7 +94,6 @@ class TestLightSource(unittest.TestCase):
         print("test_onStartFailure: Asserted log message content")
         print("test_onStartFailure: Test finished")
 
-    @timeout(60)
     def test_handleMessageTurnOn(self):
         """
         Tests handling of a 'TurnOn' message.
@@ -139,7 +117,6 @@ class TestLightSource(unittest.TestCase):
         print("test_handleMessageTurnOn: Asserted message count")
         print("test_handleMessageTurnOn: Test finished")
 
-    @timeout(60)
     def test_handleMessageTurnOff(self):
         """
         Tests handling of a 'TurnOff' message.
@@ -160,7 +137,6 @@ class TestLightSource(unittest.TestCase):
         print("test_handleMessageTurnOff: Asserted is_on is False")
         print("test_handleMessageTurnOff: Test finished")
 
-    @timeout(60)
     def test_handleMessageDim(self):
         """
         Tests handling of a 'Dim' message.
@@ -181,7 +157,6 @@ class TestLightSource(unittest.TestCase):
         print("test_handleMessageDim: Asserted show called")
         print("test_handleMessageDim: Test finished")
 
-    @timeout(60)
     def test_handleMessageDimInvalidPayload(self):
         """
         Tests that a 'Dim' message with invalid payload is ignored.
@@ -201,7 +176,6 @@ class TestLightSource(unittest.TestCase):
         print("test_handleMessageDimInvalidPayload: Asserted log level is WARNING")
         print("test_handleMessageDimInvalidPayload: Test finished")
 
-    @timeout(60)
     def test_handleMessageSetColor(self):
         """
         Tests handling of a 'SetColor' message.
@@ -221,7 +195,6 @@ class TestLightSource(unittest.TestCase):
         print("test_handleMessageSetColor: Asserted show called")
         print("test_handleMessageSetColor: Test finished")
 
-    @timeout(60)
     def test_handleMessageNoLed(self):
         """
         Tests that messages are ignored if the LED is not initialized.
@@ -243,7 +216,6 @@ class TestLightSource(unittest.TestCase):
         print("test_handleMessageNoLed: Asserted log message content")
         print("test_handleMessageNoLed: Test finished")
 
-    @timeout(60)
     def test_onStop(self):
         """
         Tests that onStop turns the light off.

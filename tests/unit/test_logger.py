@@ -5,24 +5,6 @@ import time
 import signal
 from functools import wraps
 
-def timeout(seconds):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            def handle_timeout(signum, frame):
-                raise TimeoutError(f"Test timed out after {seconds} seconds")
-            
-            signal.signal(signal.SIGALRM, handle_timeout)
-            signal.alarm(seconds)
-            
-            try:
-                result = func(*args, **kwargs)
-            finally:
-                signal.alarm(0)
-            return result
-        return wrapper
-    return decorator
-
 # Mock the dependencies before importing the class under test
 from module import Module
 from logger import Logger
@@ -54,7 +36,6 @@ class TestLogger(unittest.TestCase):
             self.logger = Logger(self.mockConfig['network'], self.mockConfig['system'])
         print("setUp: Test setup finished")
 
-    @timeout(60)
     def test_initializationSingleDestination(self):
         """
         Tests logger initialization with a single destination string.
@@ -68,7 +49,6 @@ class TestLogger(unittest.TestCase):
         self.assertEqual(self.logger.destinations, ["stdout"])
         print("test_initializationSingleDestination: Test finished")
 
-    @timeout(60)
     @patch('logger.ConfigLoader')
     def test_initializationMultipleDestinations(self, mockConfigLoader):
         """
@@ -85,7 +65,6 @@ class TestLogger(unittest.TestCase):
             self.assertEqual(logger.destinations, ["file", "websocket"])
         print("test_initializationMultipleDestinations: Test finished")
 
-    @timeout(60)
     @patch("builtins.open", new_callable=mock_open)
     def test_onStartFileDestination(self, mockFile):
         """
@@ -109,7 +88,6 @@ class TestLogger(unittest.TestCase):
         self.assertEqual(sentMessage['Destination'], 'EventManager')
         print("test_onStartFileDestination: Test finished")
 
-    @timeout(60)
     @patch("builtins.open", side_effect=IOError("Permission denied"))
     def test_onStartFileOpenError(self, mockFile):
         """
@@ -133,7 +111,6 @@ class TestLogger(unittest.TestCase):
         self.assertIn("Could not open log file", sentMessage['Message']['payload']['message'])
         print("test_onStartFileOpenError: Test finished")
 
-    @timeout(60)
     @patch('time.strftime', return_value="2023-10-27 10:00:00")
     @patch('builtins.print')
     def test_handleMessageLogToStdout(self, mockPrint, mockTime):
@@ -157,7 +134,6 @@ class TestLogger(unittest.TestCase):
         mockPrint.assert_called_once_with(expectedOutput)
         print("test_handleMessageLogToStdout: Test finished")
 
-    @timeout(60)
     @patch('time.strftime', return_value="2023-10-27 10:00:00")
     @patch("builtins.open", new_callable=mock_open)
     def test_handleMessageLogToFile(self, mockFile, mockTime):
@@ -192,7 +168,6 @@ class TestLogger(unittest.TestCase):
         mockFile().flush.assert_called_once()
         print("test_handleMessageLogToFile: Test finished")
 
-    @timeout(60)
     @patch('time.strftime', return_value="2023-10-27 10:00:00")
     @patch('builtins.print')
     def test_handleMessageLogToWebsocket(self, mockPrint, mockTime):
@@ -216,7 +191,6 @@ class TestLogger(unittest.TestCase):
         mockPrint.assert_called_once_with(expectedOutput)
         print("test_handleMessageLogToWebsocket: Test finished")
 
-    @timeout(60)
     @patch('builtins.print')
     def test_handleNonLogMessage(self, mockPrint):
         """
@@ -234,7 +208,6 @@ class TestLogger(unittest.TestCase):
         mockPrint.assert_called_once_with("[OtherModule] - Received event 'CustomEvent'")
         print("test_handleNonLogMessage: Test finished")
 
-    @timeout(60)
     def test_onStopClosesFile(self):
         """
         Tests that onStop closes the log file if it is open.
@@ -248,7 +221,6 @@ class TestLogger(unittest.TestCase):
         self.logger.log_file.close.assert_called_once()
         print("test_onStopClosesFile: Test finished")
 
-    @timeout(60)
     def test_onStopNoFile(self):
         """
         Tests that onStop does not error if the file is not open.

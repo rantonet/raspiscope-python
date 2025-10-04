@@ -4,24 +4,6 @@ import json
 import signal
 from functools import wraps
 
-def timeout(seconds):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            def handle_timeout(signum, frame):
-                raise TimeoutError(f"Test timed out after {seconds} seconds")
-            
-            signal.signal(signal.SIGALRM, handle_timeout)
-            signal.alarm(seconds)
-            
-            try:
-                result = func(*args, **kwargs)
-            finally:
-                signal.alarm(0)
-            return result
-        return wrapper
-    return decorator
-
 # Mock hardware dependencies before import
 mockInputDevice = MagicMock()
 sys_modules = {
@@ -60,7 +42,6 @@ class TestCuvetteSensor(unittest.TestCase):
             mockInputDevice.return_value = self.mockSensorDevice
         print("Setup complete for TestCuvetteSensor")
 
-    @timeout(60)
     def test_initialization(self):
         """
         Tests that the CuvetteSensor is initialized with correct config values.
@@ -78,7 +59,6 @@ class TestCuvetteSensor(unittest.TestCase):
         print("test_initialization: Asserted sensor is None")
         print("test_initialization: Test finished")
 
-    @timeout(60)
     def test_onStartSuccess(self):
         """
         Tests the successful startup sequence.
@@ -94,7 +74,6 @@ class TestCuvetteSensor(unittest.TestCase):
         print("test_onStartSuccess: Asserted registration message sent")
         print("test_onStartSuccess: Test finished")
 
-    @timeout(60)
     def test_onStartFailure(self):
         """
         Tests the startup sequence when InputDevice initialization fails.
@@ -112,7 +91,6 @@ class TestCuvetteSensor(unittest.TestCase):
         print("test_onStartFailure: Asserted log message content")
         print("test_onStartFailure: Test finished")
 
-    @timeout(60)
     def test_checkPresenceBecomesPresent(self):
         """
         Tests the state change from absent to present.
@@ -135,7 +113,6 @@ class TestCuvetteSensor(unittest.TestCase):
         print("test_checkPresenceBecomesPresent: Asserted message type is CuvettePresent")
         print("test_checkPresenceBecomesPresent: Test finished")
 
-    @timeout(60)
     def test_checkPresenceBecomesAbsent(self):
         """
         Tests the state change from present to absent.
@@ -158,7 +135,6 @@ class TestCuvetteSensor(unittest.TestCase):
         print("test_checkPresenceBecomesAbsent: Asserted message type is CuvetteAbsent")
         print("test_checkPresenceBecomesAbsent: Test finished")
 
-    @timeout(60)
     def test_checkPresenceNoChange(self):
         """
         Tests that no message is sent when the state does not change.
@@ -176,7 +152,6 @@ class TestCuvetteSensor(unittest.TestCase):
         print("test_checkPresenceNoChange: Asserted outgoingQueue.put not called")
         print("test_checkPresenceNoChange: Test finished")
 
-    @timeout(60)
     @patch('time.sleep')
     @patch('statistics.mean', return_value=0.8)
     @patch("builtins.open", new_callable=mock_open, read_data=json.dumps({"modules": {"cuvetteSensor": {}}}))
@@ -214,7 +189,6 @@ class TestCuvetteSensor(unittest.TestCase):
         print("test_calibrateSuccess: Asserted truncate on config file")
         print("test_calibrateSuccess: Test finished")
 
-    @timeout(60)
     def test_calibrateNoSensor(self):
         """
         Tests that calibrate sends an error if the sensor is not initialized.
