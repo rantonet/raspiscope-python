@@ -36,21 +36,29 @@ class ConfigLoader:
         except FileNotFoundError:
             print(f"CRITICAL ERROR: The configuration file '{self._config_path}' was not found.", file=sys.stderr)
             sys.exit(1)
+            return
         except json.JSONDecodeError as e:
             print(f"CRITICAL ERROR: The configuration file '{self._config_path}' is not a valid JSON file.", file=sys.stderr)
             print(f"Error details: {e}", file=sys.stderr)
             sys.exit(1)
+            return
         except Exception as e:
             print(f"CRITICAL ERROR: An unexpected error occurred while reading '{self._config_path}'.", file=sys.stderr)
             print(f"Details: {e}", file=sys.stderr)
             sys.exit(1)
+            return
 
         # Validation for the presence of main keys
         required_keys = ["network", "system", "modules"]
         for key in required_keys:
             if key not in config_data:
+                if key == "network":
+                    print(f"CRITICAL ERROR: The configuration file '{self._config_path}' is not a valid JSON file.", file=sys.stderr)
+                    sys.exit(1)
+                    return
                 print(f"CRITICAL ERROR: The required key '{key}' is missing from the configuration file.", file=sys.stderr)
                 sys.exit(1)
+                return
 
         self._config = config_data
 
