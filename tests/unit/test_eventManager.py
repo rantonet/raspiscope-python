@@ -28,6 +28,13 @@ class TestEventManager(unittest.TestCase):
         # Instantiate EventManager
         self.eventManager = EventManager(configPath="dummy_path.json")
 
+    def _drain_outgoing(self):
+        """Utility helper to empty the mocked communicator outgoing queue."""
+        drained = []
+        while not self.mockCommInstance.outgoingQueue.empty():
+            drained.append(self.mockCommInstance.outgoingQueue.get())
+        return drained
+
     def test_initialization(self):
         """
         Tests if the EventManager is initialized correctly.
@@ -53,9 +60,11 @@ class TestEventManager(unittest.TestCase):
             "registrationTime": 1234567890
         })
         # Verify logging
-        self.mockCommInstance.outgoingQueue.put.assert_called()
-        logCall = self.mockCommInstance.outgoingQueue.put.call_args[0][0]
-        self.assertIn("Registering new module", logCall[1]['Message']['payload']['message'])
+        messages = self._drain_outgoing()
+        self.assertTrue(messages)
+        logTuple = messages[-1]
+        self.assertEqual(logTuple[0], "Logger")
+        self.assertIn("Registering new module", logTuple[1]['Message']['payload']['message'])
 
     def test_handleRegistrationAlreadyRegistered(self):
         """
@@ -67,9 +76,11 @@ class TestEventManager(unittest.TestCase):
         self.eventManager._handleRegistration(moduleName)
         
         # Verify logging
-        self.mockCommInstance.outgoingQueue.put.assert_called()
-        logCall = self.mockCommInstance.outgoingQueue.put.call_args[0][0]
-        self.assertIn("is already registered", logCall[1]['Message']['payload']['message'])
+        messages = self._drain_outgoing()
+        self.assertTrue(messages)
+        logTuple = messages[-1]
+        self.assertEqual(logTuple[0], "Logger")
+        self.assertIn("is already registered", logTuple[1]['Message']['payload']['message'])
 
     def test_handleUnregistration(self):
         """
@@ -82,9 +93,11 @@ class TestEventManager(unittest.TestCase):
         
         self.assertNotIn(moduleName, self.eventManager.registered_modules)
         # Verify logging
-        self.mockCommInstance.outgoingQueue.put.assert_called()
-        logCall = self.mockCommInstance.outgoingQueue.put.call_args[0][0]
-        self.assertIn("Unregistering module", logCall[1]['Message']['payload']['message'])
+        messages = self._drain_outgoing()
+        self.assertTrue(messages)
+        logTuple = messages[-1]
+        self.assertEqual(logTuple[0], "Logger")
+        self.assertIn("Unregistering module", logTuple[1]['Message']['payload']['message'])
 
     def test_handleUnregistrationNotRegistered(self):
         """
@@ -94,9 +107,11 @@ class TestEventManager(unittest.TestCase):
         self.eventManager._handleUnregistration(moduleName)
         
         # Verify logging
-        self.mockCommInstance.outgoingQueue.put.assert_called()
-        logCall = self.mockCommInstance.outgoingQueue.put.call_args[0][0]
-        self.assertIn("not found for unregistration", logCall[1]['Message']['payload']['message'])
+        messages = self._drain_outgoing()
+        self.assertTrue(messages)
+        logTuple = messages[-1]
+        self.assertEqual(logTuple[0], "Logger")
+        self.assertIn("not found for unregistration", logTuple[1]['Message']['payload']['message'])
 
     def test_routeMessageToModule(self):
         """
@@ -107,8 +122,10 @@ class TestEventManager(unittest.TestCase):
         
         self.eventManager.route()
         
-        self.assertFalse(self.mockCommInstance.outgoingQueue.empty())
-        routedMessage = self.mockCommInstance.outgoingQueue.get()
+        messages = self._drain_outgoing()
+        self.assertTrue(messages)
+        routedMessage = next((msg for msg in messages if msg[0] != "Logger"), None)
+        self.assertIsNotNone(routedMessage)
         self.assertEqual(routedMessage, ("ModuleB", message))
 
     def test_routeRegisterMessage(self):
@@ -179,9 +196,9 @@ class TestEventManager(unittest.TestCase):
         self.eventManager._cleanup()
         
         # Check that a 'Stop' message was broadcast
-        self.assertFalse(self.mockCommInstance.outgoingQueue.empty())
-        broadcastMessage = self.mockCommInstance.outgoingQueue.get()
-        self.assertEqual(broadcastMessage[0], "All")
+        messages = self._drain_outgoing()
+        broadcastMessage = next((msg for msg in messages if msg[0] == "All"), None)
+        self.assertIsNotNone(broadcastMessage)
         self.assertEqual(broadcastMessage[1]['Message']['type'], "Stop")
         
         # Check that terminate was called on the alive process
@@ -199,8 +216,9 @@ class TestEventManager(unittest.TestCase):
         message = "This is a test log."
         self.eventManager.log(level, message)
         
-        self.assertFalse(self.mockCommInstance.outgoingQueue.empty())
-        logTuple = self.mockCommInstance.outgoingQueue.get()
+        messages = self._drain_outgoing()
+        self.assertTrue(messages)
+        logTuple = messages[-1]
         
         self.assertEqual(logTuple[0], "Logger")
         logMessage = logTuple[1]
