@@ -7,7 +7,10 @@ https://creativecommons.org/licenses/by-sa/4.0/
 import time
 import json
 import asyncio
-import websockets
+try:
+    import websockets
+except ModuleNotFoundError:  # Optional dependency; tests may run without it installed
+    websockets = None
 from module       import Module
 from configLoader import ConfigLoader
 
@@ -57,16 +60,12 @@ class Logger(Module):
         if "file" in self.destinations:
             try:
                 self.log_file = open(self.config.get("path","app.log"),"a")
-                self.log("INFO","Logger module configured to write to file.")
             except Exception as e:
                 self.log("ERROR",f"Could not open log file. Reverting to stdout. Details: {e}")
                 self.destinations = [d for d in self.destinations if d != "file"]
-                self.destinations.append("stdout")
+                if "stdout" not in self.destinations:
+                    self.destinations.append("stdout")
                 self.log_file = None
-        if "websocket" in self.destinations:
-            self.log("INFO","Logger module configured to send logs via WebSocket.")
-        if "stdout" in self.destinations:
-            self.log("INFO","Logger module configured to write to standard output.")
 
     def handleMessage(self,message):
         """
@@ -92,7 +91,8 @@ class Logger(Module):
                 print(f"[{log_entry['timestamp']}] [{log_entry['sender']}] ({log_entry['level']}): {log_entry['message']}")
             
             if "file" in self.destinations and self.log_file:
-                json.dump(log_entry,self.log_file)
+                serialized = json.dumps(log_entry)
+                self.log_file.write(serialized)
                 self.log_file.write('\n')
                 self.log_file.flush() # Ensure the message is written immediately
             
