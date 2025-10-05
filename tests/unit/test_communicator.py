@@ -87,10 +87,11 @@ class TestCommunicator(unittest.TestCase):
         client.conn = mockConn
 
         message = {"Sender": "Server", "Destination": "TestClient", "Message": {"type": "test"}}
-        mockConn.recv.return_value = (json.dumps(message) + '\n').encode('utf-8')
+        # Simulate receiving one message, then an empty byte string to indicate disconnection
+        mockConn.recv.side_effect = [(json.dumps(message) + '\n').encode('utf-8'), b'']
 
-        # Run receive loop once
-        client._clientReceiveLoop(Event())
+        # The loop should now terminate on its own after processing the message
+        client._clientReceiveLoop(self.stopEvent)
         
         self.assertFalse(client.incomingQueue.empty())
         receivedMessage = client.incomingQueue.get()
@@ -170,10 +171,11 @@ class TestCommunicator(unittest.TestCase):
         clientName = "TestClient"
         
         message = {"Sender": clientName, "Destination": "Server", "Message": {"type": "data"}}
-        mockConn.recv.return_value = (json.dumps(message) + '\n').encode('utf-8')
+        # Simulate receiving one message, then an empty byte string to indicate disconnection
+        mockConn.recv.side_effect = [(json.dumps(message) + '''
+''').encode('utf-8'), b'']
 
-        # Run handler once, then stop
-        self.stopEvent.set()
+        # The loop should now terminate on its own after processing the message
         server._serverHandleClient(clientName, mockConn, self.stopEvent)
 
         self.assertFalse(server.incomingQueue.empty())
