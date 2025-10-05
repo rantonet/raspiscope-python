@@ -57,6 +57,17 @@ class Communicator:
             self.log("ERROR",f"Unknown communicator type '{self.commType}'")
 
     def _initializeServer(self, stopEvent):
+        """
+        Initializes the server socket.
+
+        This method creates the server socket, sets socket options for address reuse,
+        and binds it to the address and port specified in the configuration.
+        It then starts listening for incoming connections and launches a separate
+        thread to handle the outgoing message queue.
+
+        Args:
+            stopEvent (threading.Event): An event to signal when to stop the server.
+        """
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.settimeout(1.0)  # To allow graceful exit
