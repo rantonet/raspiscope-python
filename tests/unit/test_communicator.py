@@ -9,6 +9,7 @@ from functools import wraps
 import time
 
 from communicator import Communicator
+import communicator
 
 class TestCommunicator(unittest.TestCase):
 
@@ -79,7 +80,9 @@ class TestCommunicator(unittest.TestCase):
 
         # Check that connect was called twice
         self.assertEqual(mockConn.connect.call_count, 2)
-        mockSleep.assert_called_once_with(3) # Default reconnect delay
+        self.assertGreaterEqual(mockSleep.call_count, 2)
+        self.assertEqual(mockSleep.call_args_list[0], call(3)) # Default reconnect delay
+        self.assertIn(call(0.001), mockSleep.call_args_list)
 
     def test_clientReceiveMessage(self):
         client = Communicator(commType="client", name="TestClient", config=self.config)
@@ -105,8 +108,11 @@ class TestCommunicator(unittest.TestCase):
         message = {"Sender": "TestClient", "Destination": "Server", "Message": {"type": "test"}}
         client.outgoingQueue.put(message)
 
-        # To stop the loop after one iteration
-        self.stopEvent.set()
+        def sendall_side_effect(*args, **kwargs):
+            self.stopEvent.set()
+
+        mockConn.sendall.side_effect = sendall_side_effect
+
         client._clientSendLoop(self.stopEvent)
 
         expectedData = (json.dumps(message) + '\n').encode('utf-8')
@@ -121,10 +127,15 @@ class TestCommunicator(unittest.TestCase):
 
         server = Communicator(commType="server", name="Server", config=self.config)
         
-        # Mock accept to stop the loop
-        mockServerSocket.accept.side_effect = socket.timeout
-        
-        server.run(self.stopEvent)
+        # Mock accept to stop the loop after one timeout
+        def accept_side_effect(*args, **kwargs):
+            self.stopEvent.set()
+            raise socket.timeout()
+
+        mockServerSocket.accept.side_effect = accept_side_effect
+
+        with patch.object(communicator, 'send_thread', mockThread.return_value, create=True):
+            server.run(self.stopEvent)
 
         mockServerSocket.bind.assert_called_with(('localhost', 12345))
         mockServerSocket.listen.assert_called_with(5)
@@ -141,7 +152,12 @@ class TestCommunicator(unittest.TestCase):
         mockAddr = ('127.0.0.1', 54321)
 
         # Simulate one connection then timeout
-        mockServerSocket.accept.side_effect = [(mockClientConn, mockAddr), socket.timeout]
+        def accept_side_effect():
+            yield (mockClientConn, mockAddr)
+            self.stopEvent.set()
+            raise socket.timeout()
+
+        mockServerSocket.accept.side_effect = accept_side_effect()
         mockSocket.return_value = mockServerSocket
 
         # Simulate client identification
@@ -154,7 +170,8 @@ class TestCommunicator(unittest.TestCase):
         # Mock the handler thread target to prevent it from running
         server._serverHandleClient = MagicMock()
         
-        server.run(self.stopEvent)
+        with patch.object(communicator, 'send_thread', mockThread.return_value, create=True):
+            server.run(self.stopEvent)
 
         self.assertIn(clientName, server.client_sockets)
         self.assertEqual(server.client_sockets[clientName], mockClientConn)
@@ -190,8 +207,11 @@ class TestCommunicator(unittest.TestCase):
         message = {"Sender": "Server", "Destination": "Client1", "Message": {"type": "test"}}
         server.outgoingQueue.put(("Client1", message))
 
-        # Stop loop after one message
-        self.stopEvent.set()
+        def unicast_sendall_side_effect(*args, **kwargs):
+            self.stopEvent.set()
+
+        mockSock1.sendall.side_effect = unicast_sendall_side_effect
+
         server._serverSendLoop(self.stopEvent)
 
         expectedData = (json.dumps(message) + '\n').encode('utf-8')
@@ -208,7 +228,16 @@ class TestCommunicator(unittest.TestCase):
         message = {"Sender": "SenderClient", "Destination": "All", "Message": {"type": "test"}}
         server.outgoingQueue.put(("All", message))
 
-        self.stopEvent.set()
+        send_calls = {'count': 0}
+
+        def broadcast_sendall_side_effect(*args, **kwargs):
+            send_calls['count'] += 1
+            if send_calls['count'] >= 2:
+                self.stopEvent.set()
+
+        mockSock2.sendall.side_effect = broadcast_sendall_side_effect
+        mockSock3.sendall.side_effect = broadcast_sendall_side_effect
+
         server._serverSendLoop(self.stopEvent)
 
         expectedData = (json.dumps(message) + '\n').encode('utf-8')
