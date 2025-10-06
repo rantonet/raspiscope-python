@@ -38,7 +38,6 @@ def main():
         "cuvetteSensor" : CuvetteSensor,
         "camera"        : Camera,
         "analysis"      : Analysis,
-        "cli"           : CLI,
     }
     running_processes = []
     
