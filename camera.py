@@ -55,11 +55,20 @@ class Camera(Module):
         msgType = message.get("Message",{}).get("type")
 
         if msgType == "CuvettePresent":
-            self.log("INFO","Received cuvette present signal. Taking a picture.")
-            self.takePicture()
+            self.log("INFO","Received 'Cuvette Present' signal. Taking a picture.")
+            picture = self.takePicture()
+            if picture:
+                self.sendMessage("Analyze","Analyze",picture)
         elif msgType == "Take":
             self.log("INFO","Received 'Take' command. Taking a picture.")
-            self.takePicture()
+            picture = self.takePicture()
+            if picture:
+                self.sendMessage("All","PictureTaken",picture)
+        elif msgType == "Analyze":
+            self.log("INFO","Received 'Analyze' command. Starting analysis.")
+            picture = self.takePicture()
+            if picture:
+                self.sendMessage("Analyze","Analyze",picture)
         elif msgType == "Calibrate":
             self.log("INFO","Received 'Calibrate' command. Starting calibration.")
             self.calibrate()
@@ -82,9 +91,8 @@ class Camera(Module):
             imageB64 = base64.b64encode(buffer).decode('utf-8')
 
             payload = {"image": imageB64}
-            self.sendMessage("Analysis","Analyze",payload)
-            self.log("INFO","Picture taken and sent for analysis.")
-
+            self.log("INFO","Picture taken")
+            return payload
         except Exception as e:
             self.log("ERROR",f"ERROR while taking picture: {e}")
 

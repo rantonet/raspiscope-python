@@ -12,3 +12,27 @@ class GUI(Module):
         configLoader = ConfigLoader(configPath)
         config       = configLoader.get_config()
         pass
+    def onStart(self):
+        """
+        Initializes and configures the Graphical User Interface
+         module.
+        """
+        self.sendMessage("EventManager", "Register")
+        self.promptLoop = Thread(target=self._promptLoop)
+        self.promptLoop.start()
+    def handleMessage(self,message):
+         """
+        Handles incoming messages.
+        """
+        if not self.camera:
+            self.log("WARNING","Camera not available,ignoring command.")
+            return
+
+        msgType = message.get("Message",{}).get("type")
+        payload = message.get("Message",{}).get("payload",{})
+        if msgType == "":
+            pass
+        elif msgType == "":
+            pass
+    def onStop(self):
+        pass
