@@ -12,21 +12,28 @@ import json
 from picamera2 import Picamera2
 from threading import Thread
 from module    import Module
+from configLoader import ConfigLoader
 
 class Camera(Module):
     """
     Manages the PiCamera.
     Inherits from the base Module class.
     """
-    def __init__(self,networkConfig,systemConfig):
+    def __init__(self,moduleConfig,networkConfig,systemConfig):
         super().__init__("Camera",networkConfig,systemConfig)
-        self.camera = None
-        full_config = None
-        with open('config.json', 'r') as f:
-            full_config = json.load(f)
-        self.resolution = full_config['modules']['camera']['resolution']
-        self.gain       = full_config['modules']['camera']['gain']
-        self.exposure   = full_config['modules']['camera']['exposure']
+        if moduleConfig is None:
+            full_config = ConfigLoader().get_config()
+            moduleConfig = full_config.get("modules", {}).get("camera", {})
+
+        self.config    = moduleConfig or {}
+        resolution_cfg = self.config.get('resolution', (1920, 1080))
+        if isinstance(resolution_cfg, (list, tuple)) and len(resolution_cfg) == 2:
+            self.resolution = (int(resolution_cfg[0]), int(resolution_cfg[1]))
+        else:
+            self.resolution = (1920, 1080)
+        self.gain     = self.config.get('gain', 1.0)
+        self.exposure = self.config.get('exposure', 1000)
+        self.camera   = None
 
 
     def onStart(self):
@@ -39,7 +46,7 @@ class Camera(Module):
             camConfig  = self.camera.create_still_configuration({"size": self.resolution,"gain" : self.gain,"exposure" : self.exposure})
             self.camera.configure(camConfig)
             self.camera.start()
-            self.log("INFO",f"Camera started and configured with resolution {resolution}.")
+            self.log("INFO",f"Camera started and configured with resolution {self.resolution}.")
         except Exception as e:
             self.log("ERROR",f"Could not initialize camera: {e}")
             self.camera = None

@@ -19,7 +19,7 @@ class Logger(Module):
     Manages centralized logging by receiving messages from other modules
     and routing them to a specified destination (stdout, file, or WebSocket).
     """
-    def __init__(self,networkConfig,systemConfig):
+    def __init__(self,moduleConfig,networkConfig,systemConfig):
         """
         Initializes the Logger module. The output destination is configured
         in the 'config.json' file under 'modules.logger.destination'.
@@ -34,12 +34,11 @@ class Logger(Module):
         - "websocket": Sends logs to a remote server via WebSocket. The
           connection details are specified in the 'network' parameter.
         """
-        config_loader = ConfigLoader()
-        full_config = config_loader.get_config()
-    
-        networkConfig = full_config.get("network")
-        systemConfig = full_config.get("system")
-        self.config = full_config.get("modules", {}).get("logger")
+        if moduleConfig is None:
+            full_config = ConfigLoader().get_config()
+            moduleConfig = full_config.get("modules", {}).get("logger", {})
+
+        self.config = moduleConfig or {}
 
         super().__init__("Logger",networkConfig,systemConfig)
         

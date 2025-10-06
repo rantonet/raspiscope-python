@@ -17,19 +17,21 @@ class CuvetteSensor(Module):
     Detects the presence of the cuvette using a Hall effect sensor.
     Inherits from the base Module class.
     """
-    def __init__(self,networkConfig,systemConfig):
-        config_loader = ConfigLoader()
-        full_config = config_loader.get_config()
-        config = full_config.get("modules", {}).get("cuvetteSensor")
+    def __init__(self,moduleConfig,networkConfig,systemConfig):
+        if moduleConfig is None:
+            full_config = ConfigLoader().get_config()
+            moduleConfig = full_config.get("modules", {}).get("cuvetteSensor", {})
 
         super().__init__("CuvetteSensor",networkConfig,systemConfig)
-        self.inputPin          = config['pin']
+        self.config            = moduleConfig or {}
+        calibrationCfg         = self.config.get('calibration', {})
+        self.inputPin          = self.config.get('pin')
         self.sensor            = None
-        self.presenceThreshold = 0
-        self.thresholdSpan     = config['calibration']['threshold_span']
-        self.pollInterval      = config['poll_interval_s']
+        self.presenceThreshold = self.config.get('presence_threshold', 0)
+        self.thresholdSpan     = calibrationCfg.get('threshold_span', 0)
+        self.pollInterval      = self.config.get('poll_interval_s', 1.0)
         self.isPresent         = False
-        self.numSamples        = config['calibration']['samples']
+        self.numSamples        = calibrationCfg.get('samples', 0)
 
 
     def onStart(self):
@@ -38,10 +40,15 @@ class CuvetteSensor(Module):
         """
         self.sendMessage("EventManager", "Register")
         try:
+            if self.inputPin is None:
+                raise ValueError("Missing 'pin' configuration for CuvetteSensor")
             self.sensor = InputDevice(self.inputPin)
             self.log("INFO",f"Cuvette sensor initialized on pin {self.inputPin}.")
         except GPIOZeroError as e:
             self.log("ERROR",f"Could not initialize sensor on pin {self.inputPin}. Details: {e}")
+            self.sensor = None
+        except ValueError as e:
+            self.log("ERROR", str(e))
             self.sensor = None
 
     def mainLoop(self):
@@ -52,7 +59,7 @@ class CuvetteSensor(Module):
             time.sleep(1)
             return
 
-        while not self.stop_event.is_set():
+        while not self.stopEvent.is_set():
             self.checkPresence()
             time.sleep(self.pollInterval)
 
@@ -72,7 +79,7 @@ class CuvetteSensor(Module):
                 self.sendMessage("Camera","CuvetteAbsent")
         except Exception as e:
             self.log("ERROR",f"Error while reading the sensor: {e}")
-            self.stop_event.set()
+            self.stopEvent.set()
 
     def calibrate(self):
         """
@@ -94,6 +101,12 @@ class CuvetteSensor(Module):
                 meanValue = statistics.mean(samples)
                 self.thresholdSpan = (max(samples) - min(samples)) / 2
                 self.presenceThreshold = meanValue - self.thresholdSpan
+
+                # Keep in-memory configuration updated for subsequent operations
+                self.config['presence_threshold'] = self.presenceThreshold
+                calibrationCfg = self.config.setdefault('calibration', {})
+                calibrationCfg['threshold_span'] = self.thresholdSpan
+                calibrationCfg['samples'] = self.numSamples
 
                 # Save config to file
                 try:

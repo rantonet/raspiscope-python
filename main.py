@@ -16,6 +16,8 @@ from lightSource     import LightSource
 from cuvetteSensor   import CuvetteSensor
 from camera          import Camera
 from analysis        import Analysis
+from cli             import CLI
+from gui             import GUI
 
 def main():
     """
@@ -31,11 +33,12 @@ def main():
     config = config_loader.get_config()
 
     modules_to_start = {
-        "logger": Logger,
-        "lightSource": LightSource,
-        "cuvetteSensor": CuvetteSensor,
-        "camera": Camera,
-        "analysis": Analysis
+        "logger"        : Logger,
+        "lightSource"   : LightSource,
+        "cuvetteSensor" : CuvetteSensor,
+        "camera"        : Camera,
+        "analysis"      : Analysis,
+        "cli"           : CLI,
     }
     running_processes = []
     

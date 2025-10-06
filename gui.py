@@ -4,10 +4,12 @@ CC BY-SA 4.0
 https://creativecommons.org/licenses/by-sa/4.0/
 """
 
+from kivy.app import App
+
 from module       import Module
 from configLoader import ConfigLoader
 
-class GUI(Module):
+class GUI(Module,App):
     def __init__(self):
         configLoader = ConfigLoader(configPath)
         config       = configLoader.get_config()
@@ -21,7 +23,7 @@ class GUI(Module):
         self.promptLoop = Thread(target=self._promptLoop)
         self.promptLoop.start()
     def handleMessage(self,message):
-         """
+        """
         Handles incoming messages.
         """
         if not self.camera:

@@ -14,24 +14,27 @@ class LightSource(Module):
     Manages an RGB LED
     Inherits from the base Module class.
     """
-    def __init__(self,networkConfig,systemConfig):
+    def __init__(self,moduleConfig,networkConfig,systemConfig):
         """
         Initializes the LightSource module.
         """
-        config_loader = ConfigLoader()
-        full_config = config_loader.get_config()
+        if moduleConfig is None:
+            full_config = ConfigLoader().get_config()
+            moduleConfig = full_config.get("modules", {}).get("lightSource", {})
 
         super().__init__("LightSource",networkConfig,systemConfig)
-        self.pin        = full_config['pin']
-        self.dma        = full_config['dma']
+        self.config     = moduleConfig or {}
+        self.pin        = self.config.get('pin')
+        self.dma        = self.config.get('dma')
         # The library wants a value from 0-255
-        self.brightness = int(full_config['brightness'] * 255)
-        self.pwmChannel = full_config['pwm_channel']
+        brightness      = self.config.get('brightness', 0)
+        self.brightness = int(brightness * 255) if isinstance(brightness, (int, float)) else 0
+        self.pwmChannel = self.config.get('pwm_channel')
         self.led        = None
         self.whiteColor = Color(255,255,255)
-        self.r          = full_config['r']
-        self.g          = full_config['g']
-        self.b          = full_config['b']
+        self.r          = self.config.get('r', 255)
+        self.g          = self.config.get('g', 255)
+        self.b          = self.config.get('b', 255)
         self.color      = (self.r,self.g,self.b)
         self.is_on      = False
 
@@ -41,6 +44,9 @@ class LightSource(Module):
         Initializes the LED strip.
         """
         self.sendMessage("EventManager", "Register")
+        if self.pin is None or self.dma is None or self.pwmChannel is None:
+            self.log("ERROR","LightSource configuration missing required parameters (pin, dma, pwm_channel).")
+            return
         try:
             # The rpi_ws281x library requires root privileges to run
             self.led = PixelStrip(

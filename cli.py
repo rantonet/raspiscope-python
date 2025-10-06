@@ -4,53 +4,70 @@ CC BY-SA 4.0
 https://creativecommons.org/licenses/by-sa/4.0/
 """
 
-import time
-
 from threading    import Thread
 from module       import Module
 from configLoader import ConfigLoader
 
 class CLI(Module):
-    def __init__(self):
-        configLoader = ConfigLoader(configPath)
-        config       = configLoader.get_config()
-        pass
+    def __init__(self,moduleConfig,networkConfig,systemConfig):
+        if moduleConfig is None:
+            full_config = ConfigLoader().get_config()
+            moduleConfig = full_config.get("modules", {}).get("cli", {})
+
+        super().__init__("CLI",networkConfig,systemConfig)
+        self.config       = moduleConfig or {}
+        self.promptThread = None
+
     def _promptLoop(self):
         while not self.stopEvent.is_set():
-            command = input("Prompt: ")
-            if command == "Take picture":
+            try:
+                command = input("Prompt: ").strip().lower()
+            except EOFError:
+                self.stopEvent.set()
+                break
+
+            if not command:
+                continue
+
+            if command in {"take picture","take"}:
                 self.sendMessage("Camera","Take")
-            elif command == "Make analysis":
+            elif command in {"make analysis","analyze","analysis"}:
                 self.sendMessage("Camera","Analyze")
-            elif command == "Calibrate camera":
-                pass
-            elif command == "Calibrate sensor":
-                pass
+            elif command in {"calibrate camera","camera calibrate"}:
+                self.sendMessage("Camera","Calibrate")
+            elif command in {"calibrate sensor","sensor calibrate"}:
+                self.sendMessage("CuvetteSensor","Calibrate")
+            elif command in {"quit","exit"}:
+                self.stopEvent.set()
+            else:
+                print(f"Unknown command: {command}")
+
     def onStart(self):
         """
         Initializes and configures the command line module.
         """
         self.sendMessage("EventManager", "Register")
-        self.promptLoop = Thread(target=self._promptLoop)
-        self.promptLoop.start()
+        self.promptThread = Thread(target=self._promptLoop,daemon=True)
+        self.promptThread.start()
+
     def handleMessage(self,message):
-         """
+        """
         Handles incoming messages.
         """
-        if not self.camera:
-            self.log("WARNING","Camera not available,ignoring command.")
-            return
-
         msgType = message.get("Message",{}).get("type")
         payload = message.get("Message",{}).get("payload",{})
         if msgType == "PictureTaken":
-            self.log("INFO","Received 'Picture Taken' signal. Picture received.")
-            if payload:
-                picture = payload.get("image")
-                if picture:
-                    pass
+            self.log("INFO","Picture captured.")
+            if payload and payload.get("image"):
+                print("Picture payload received (base64 omitted).")
         elif msgType == "AnalysisComplete":
-            self.log("INFO","Received 'Analysis Complete' command. Showing analysis results.")
-            pass
+            self.log("INFO","Analysis results available.")
+            if payload:
+                print("Analysis results:",payload)
+        elif msgType == "AnalysisError":
+            self.log("ERROR",payload.get("message","Unknown analysis error."))
+
     def onStop(self):
-        pass
+        self.stopEvent.set()
+        if self.promptThread and self.promptThread.is_alive():
+            self.promptThread.join(timeout=1)
