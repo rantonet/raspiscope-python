@@ -59,7 +59,7 @@ class CLI(Module):
         if msgType == "PictureTaken":
             self.log("INFO","Picture captured.")
             if payload and payload.get("image"):
-                print("Picture payload received (base64 omitted).")
+                print("Picture received")
         elif msgType == "AnalysisComplete":
             self.log("INFO","Analysis results available.")
             if payload:
