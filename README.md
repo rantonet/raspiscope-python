@@ -1,7 +1,7 @@
 # Raspiscope Python Application
 Thisi is a fork of antlampas/rapiscope-python original code.
 
-# Copilot Instructions for Raspiscope Python Application
+# Instructions for Raspiscope Python Application
 
 ## Project Architecture
 - **Modular Design:** Each hardware/software function (e.g., camera, light source, cuvette sensor, analysis, logger, GUI) is implemented as a separate module class (see `camera.py`, `lightSource.py`, etc.), inheriting from the abstract `Module` base class (`module.py`).
